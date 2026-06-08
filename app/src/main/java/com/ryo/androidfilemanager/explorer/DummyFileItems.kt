@@ -1,0 +1,88 @@
+package com.ryo.androidfilemanager.explorer
+
+import com.ryo.androidfilemanager.data.model.FileItem
+import com.ryo.androidfilemanager.data.model.SourceType
+
+internal fun dummyFileItems(): List<FileItem> = listOf(
+    FileItem(
+        name = "Documents",
+        path = "/demo/Documents",
+        uri = null,
+        isDirectory = true,
+        size = null,
+        modifiedAt = 1_786_000_000_000,
+        mimeType = null,
+        sourceType = SourceType.LOCAL,
+    ),
+    FileItem(
+        name = "photo.jpg",
+        path = "/demo/photo.jpg",
+        uri = "file:///demo/photo.jpg",
+        isDirectory = false,
+        size = 2_410_496,
+        modifiedAt = 1_786_010_000_000,
+        mimeType = "image/jpeg",
+        sourceType = SourceType.LOCAL,
+    ),
+    FileItem(
+        name = "viewer_spec.pdf",
+        path = "/demo/viewer_spec.pdf",
+        uri = "file:///demo/viewer_spec.pdf",
+        isDirectory = false,
+        size = 842_120,
+        modifiedAt = 1_786_020_000_000,
+        mimeType = "application/pdf",
+        sourceType = SourceType.LOCAL,
+    ),
+    FileItem(
+        name = "sample_movie.mp4",
+        path = "/demo/sample_movie.mp4",
+        uri = "file:///demo/sample_movie.mp4",
+        isDirectory = false,
+        size = 128_974_848,
+        modifiedAt = 1_786_030_000_000,
+        mimeType = "video/mp4",
+        sourceType = SourceType.LOCAL,
+    ),
+    FileItem(
+        name = "ambient.flac",
+        path = "/demo/ambient.flac",
+        uri = "file:///demo/ambient.flac",
+        isDirectory = false,
+        size = 18_120_704,
+        modifiedAt = 1_786_040_000_000,
+        mimeType = "audio/flac",
+        sourceType = SourceType.LOCAL,
+    ),
+    FileItem(
+        name = "README.md",
+        path = "/demo/README.md",
+        uri = "file:///demo/README.md",
+        isDirectory = false,
+        size = 18_432,
+        modifiedAt = 1_786_050_000_000,
+        mimeType = "text/markdown",
+        sourceType = SourceType.LOCAL,
+    ),
+    FileItem(
+        name = "MainActivity.kt",
+        path = "/demo/MainActivity.kt",
+        uri = "file:///demo/MainActivity.kt",
+        isDirectory = false,
+        size = 4_096,
+        modifiedAt = 1_786_060_000_000,
+        mimeType = "text/x-kotlin",
+        sourceType = SourceType.LOCAL,
+    ),
+    FileItem(
+        name = "archive.zip",
+        path = "/demo/archive.zip",
+        uri = "file:///demo/archive.zip",
+        isDirectory = false,
+        size = 78_643_200,
+        modifiedAt = 1_786_070_000_000,
+        mimeType = "application/zip",
+        sourceType = SourceType.LOCAL,
+    ),
+)
+
