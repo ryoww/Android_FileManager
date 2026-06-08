@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
@@ -26,18 +27,23 @@ data class SmbExplorerUiState(
     val domain: String = "",
     val port: String = "445",
     val files: List<FileItem> = emptyList(),
+    val selectedPaths: Set<String> = emptySet(),
     val currentPath: String = "",
     val pathStack: List<String> = emptyList(),
     val connected: Boolean = false,
     val connectionFormExpanded: Boolean = true,
     val hasSavedConnection: Boolean = false,
     val isLoading: Boolean = false,
+    val isDownloading: Boolean = false,
     val errorMessage: String? = null,
     val statusMessage: String? = null,
     val openedFile: OpenedFile? = null,
 ) {
     val canNavigateUp: Boolean
         get() = pathStack.size > 1
+
+    val selectedCount: Int
+        get() = selectedPaths.size
 }
 
 class SmbExplorerViewModel(
@@ -135,6 +141,7 @@ class SmbExplorerViewModel(
         activeConnectionInfo = null
         uiState = uiState.copy(
             files = emptyList(),
+            selectedPaths = emptySet(),
             currentPath = "",
             pathStack = emptyList(),
             connected = false,
@@ -156,12 +163,25 @@ class SmbExplorerViewModel(
     }
 
     fun onFileSelected(file: FileItem) {
+        if (uiState.selectedPaths.isNotEmpty()) {
+            toggleSelection(file)
+            return
+        }
+
         if (file.isDirectory) {
             val nextStack = uiState.pathStack + file.path
             loadPath(path = file.path, pathStack = nextStack)
         } else {
             openFile(file)
         }
+    }
+
+    fun onFileLongPressed(file: FileItem) {
+        toggleSelection(file)
+    }
+
+    fun clearSelection() {
+        uiState = uiState.copy(selectedPaths = emptySet())
     }
 
     fun navigateUp() {
@@ -178,11 +198,60 @@ class SmbExplorerViewModel(
         uiState = uiState.copy(openedFile = null)
     }
 
+    fun downloadSelectedFiles() {
+        val smbSource = source ?: return
+        val selectedFiles = uiState.files.filter { it.path in uiState.selectedPaths }
+        if (selectedFiles.isEmpty()) {
+            uiState = uiState.copy(
+                errorMessage = "Select SMB files or folders to download.",
+            )
+            return
+        }
+
+        if (!FileManagerAccess.hasAllFilesAccess()) {
+            uiState = uiState.copy(
+                errorMessage = "Enable full storage access before downloading SMB files to Download.",
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            uiState = uiState.copy(
+                isLoading = true,
+                isDownloading = true,
+                errorMessage = null,
+                statusMessage = "Downloading ${selectedFiles.size} selected item(s)...",
+            )
+
+            runCatching {
+                smbSource.downloadToDownloads(selectedFiles)
+            }.onSuccess { summary ->
+                uiState = uiState.copy(
+                    selectedPaths = emptySet(),
+                    isLoading = false,
+                    isDownloading = false,
+                    statusMessage = "Downloaded ${summary.fileCount} file(s) to ${summary.destinationPath}.",
+                )
+            }.onFailure { throwable ->
+                uiState = uiState.copy(
+                    isLoading = false,
+                    isDownloading = false,
+                    errorMessage = throwable.message ?: "SMB download failed.",
+                )
+            }
+        }
+    }
+
     private fun loadPath(path: String, pathStack: List<String>) {
         val smbSource = source ?: return
 
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            uiState = uiState.copy(
+                selectedPaths = emptySet(),
+                isLoading = true,
+                errorMessage = null,
+                statusMessage = null,
+            )
             runCatching {
                 smbSource.list(path)
             }.onSuccess { files ->
@@ -191,6 +260,7 @@ class SmbExplorerViewModel(
                 }
                 uiState = uiState.copy(
                     files = files,
+                    selectedPaths = emptySet(),
                     currentPath = path,
                     pathStack = pathStack,
                     connected = true,
@@ -233,6 +303,15 @@ class SmbExplorerViewModel(
         uiState = uiState.copy(
             errorMessage = "Host and share name are required. Port must be a valid number.",
         )
+    }
+
+    private fun toggleSelection(file: FileItem) {
+        val nextSelection = if (file.path in uiState.selectedPaths) {
+            uiState.selectedPaths - file.path
+        } else {
+            uiState.selectedPaths + file.path
+        }
+        uiState = uiState.copy(selectedPaths = nextSelection, errorMessage = null)
     }
 
     private fun applyConnectionInfo(info: SmbConnectionInfo) {

@@ -7,17 +7,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -61,14 +55,6 @@ private enum class FileFilter(
     VIDEO("Video"),
     CODE("Code"),
     IMAGES("Images"),
-}
-
-private enum class SortOption(
-    val label: String,
-) {
-    NAME("Name"),
-    DATE("Date"),
-    SIZE("Size"),
 }
 
 @Composable
@@ -149,19 +135,19 @@ fun ExplorerScreenContent(
 ) {
     var gridMode by rememberSaveable { mutableStateOf(true) }
     var selectedFilterName by rememberSaveable { mutableStateOf(FileFilter.ALL.name) }
-    var selectedSortName by rememberSaveable { mutableStateOf(SortOption.NAME.name) }
+    var selectedSortName by rememberSaveable { mutableStateOf(FileSortOption.DEFAULT.name) }
     val selectedFilter = FileFilter.valueOf(selectedFilterName)
-    val selectedSort = SortOption.valueOf(selectedSortName)
+    val selectedSort = FileSortOption.valueOf(selectedSortName)
     val visibleFiles = remember(uiState.files, selectedFilter, selectedSort) {
         uiState.files
             .filter { file -> file.matchesFilter(selectedFilter) }
-            .sortedWith(selectedSort.comparator())
+            .sortedForDisplay(selectedSort)
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ExplorerHeader(
@@ -288,8 +274,8 @@ private fun ExplorerToolbar(
     onGridModeChange: (Boolean) -> Unit,
     selectedFilter: FileFilter,
     onFilterSelected: (FileFilter) -> Unit,
-    selectedSort: SortOption,
-    onSortSelected: (SortOption) -> Unit,
+    selectedSort: FileSortOption,
+    onSortSelected: (FileSortOption) -> Unit,
     onReload: () -> Unit,
 ) {
     Row(
@@ -325,58 +311,12 @@ private fun ExplorerToolbar(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        SortOption.entries.forEach { sortOption ->
+        FileSortOption.entries.forEach { sortOption ->
             FilterChip(
                 selected = selectedSort == sortOption,
                 onClick = { onSortSelected(sortOption) },
                 label = { Text(text = sortOption.label) },
             )
-        }
-    }
-}
-
-@Composable
-private fun FileCollection(
-    gridMode: Boolean,
-    files: List<FileItem>,
-    thumbnailRepository: ThumbnailRepository,
-    onFileClick: (FileItem) -> Unit,
-) {
-    if (gridMode) {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 168.dp),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(
-                items = files,
-                key = { it.path },
-            ) { file ->
-                FileGridItem(
-                    file = file,
-                    thumbnailRepository = thumbnailRepository,
-                    onClick = { onFileClick(file) },
-                )
-            }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(
-                items = files,
-                key = { it.path },
-            ) { file ->
-                FileListItem(
-                    file = file,
-                    thumbnailRepository = thumbnailRepository,
-                    onClick = { onFileClick(file) },
-                )
-            }
         }
     }
 }
@@ -392,19 +332,6 @@ private fun FileItem.matchesFilter(filter: FileFilter): Boolean {
         FileFilter.VIDEO -> detectViewerType(name, mimeType) == ViewerType.Video
         FileFilter.CODE -> detectViewerType(name, mimeType) == ViewerType.Code
         FileFilter.IMAGES -> detectViewerType(name, mimeType) == ViewerType.Image
-    }
-}
-
-private fun SortOption.comparator(): Comparator<FileItem> {
-    val directoryFirst = compareByDescending<FileItem> { it.isDirectory }
-    return when (this) {
-        SortOption.NAME -> directoryFirst.thenBy { it.name.lowercase() }
-        SortOption.DATE -> directoryFirst
-            .thenByDescending { it.modifiedAt ?: Long.MIN_VALUE }
-            .thenBy { it.name.lowercase() }
-        SortOption.SIZE -> directoryFirst
-            .thenByDescending { it.size ?: Long.MIN_VALUE }
-            .thenBy { it.name.lowercase() }
     }
 }
 
@@ -464,23 +391,6 @@ private fun EmptyFolderCard(
                     Text(text = "Choose SAF folder")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ViewModeButton(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    if (selected) {
-        Button(onClick = onClick) {
-            Text(text = label)
-        }
-    } else {
-        OutlinedButton(onClick = onClick) {
-            Text(text = label)
         }
     }
 }

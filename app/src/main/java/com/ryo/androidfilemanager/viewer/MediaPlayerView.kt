@@ -4,7 +4,6 @@ import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,20 +34,10 @@ internal fun MediaPlayerView(
 ) {
     val context = LocalContext.current
     var playbackError by remember(openedFile) { mutableStateOf<String?>(null) }
-    var playbackState by remember(openedFile) { mutableIntStateOf(Player.STATE_IDLE) }
-    var isLoading by remember(openedFile) { mutableStateOf(false) }
     val player = remember(openedFile) {
         ExoPlayer.Builder(context).build().apply {
             addListener(
                 object : Player.Listener {
-                    override fun onPlaybackStateChanged(playbackStateValue: Int) {
-                        playbackState = playbackStateValue
-                    }
-
-                    override fun onIsLoadingChanged(isLoadingValue: Boolean) {
-                        isLoading = isLoadingValue
-                    }
-
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                         playbackError = error.message ?: "Media playback failed."
                     }
@@ -100,12 +89,9 @@ internal fun MediaPlayerView(
                 playerView.showController()
             },
         )
-        if (openedFile is OpenedFile.Stream) {
-            PlaybackStatusOverlay(
-                state = playbackState,
-                isLoading = isLoading,
-                error = playbackError,
-                streamSize = openedFile.remoteFile.size,
+        playbackError?.let { error ->
+            PlaybackErrorOverlay(
+                error = error,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(16.dp),
@@ -115,29 +101,13 @@ internal fun MediaPlayerView(
 }
 
 @Composable
-private fun PlaybackStatusOverlay(
-    state: Int,
-    isLoading: Boolean,
-    error: String?,
-    streamSize: Long,
+private fun PlaybackErrorOverlay(
+    error: String,
     modifier: Modifier = Modifier,
 ) {
-    val stateLabel = when (state) {
-        Player.STATE_IDLE -> "IDLE"
-        Player.STATE_BUFFERING -> "BUFFERING"
-        Player.STATE_READY -> "READY"
-        Player.STATE_ENDED -> "ENDED"
-        else -> "UNKNOWN"
-    }
-    val message = error ?: "SMB stream: $stateLabel / loading=$isLoading / size=$streamSize"
-
     Text(
-        text = message,
-        color = if (error == null) {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        } else {
-            MaterialTheme.colorScheme.error
-        },
+        text = error,
+        color = MaterialTheme.colorScheme.error,
         style = MaterialTheme.typography.bodySmall,
         modifier = modifier,
     )

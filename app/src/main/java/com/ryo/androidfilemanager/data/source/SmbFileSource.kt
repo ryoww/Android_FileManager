@@ -2,6 +2,7 @@ package com.ryo.androidfilemanager.data.source
 
 import android.content.Context
 import android.net.Uri
+import android.os.Environment
 import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.mssmb2.SMB2CreateDisposition
@@ -25,6 +26,11 @@ import java.security.MessageDigest
 import java.util.EnumSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+data class SmbDownloadSummary(
+    val fileCount: Int,
+    val destinationPath: String,
+)
 
 class SmbFileSource(
     context: Context,
@@ -100,6 +106,39 @@ class SmbFileSource(
         return cacheSmallFile(file)
     }
 
+    suspend fun downloadToDownloads(files: List<FileItem>): SmbDownloadSummary = withContext(Dispatchers.IO) {
+        require(files.isNotEmpty()) {
+            "Select one or more SMB files to download."
+        }
+
+        val downloadsDirectory = File(
+            Environment.getExternalStorageDirectory(),
+            Environment.DIRECTORY_DOWNLOADS,
+        )
+        val destinationRoot = File(
+            File(downloadsDirectory, "AndroidFileManager SMB"),
+            "${connectionInfo.host.safeFileName()}_${connectionInfo.shareName.safeFileName()}",
+        )
+        destinationRoot.mkdirs()
+
+        var downloadedFileCount = 0
+        withDiskShare(connectionInfo) { share ->
+            files.forEach { file ->
+                downloadedFileCount += share.downloadItem(
+                    remotePath = file.path,
+                    name = file.name,
+                    isDirectory = file.isDirectory,
+                    destinationParent = destinationRoot,
+                )
+            }
+        }
+
+        SmbDownloadSummary(
+            fileCount = downloadedFileCount,
+            destinationPath = destinationRoot.path,
+        )
+    }
+
     private suspend fun cacheSmallFile(file: FileItem): File = withContext(Dispatchers.IO) {
         val cacheFile = File(smbCacheDir, "${file.cacheKey()}.${file.name.safeFileName()}")
         if (cacheFile.exists() && cacheFile.length() == file.size) {
@@ -167,6 +206,55 @@ class SmbFileSource(
         )
     }
 
+    private fun DiskShare.downloadItem(
+        remotePath: String,
+        name: String,
+        isDirectory: Boolean,
+        destinationParent: File,
+    ): Int {
+        if (isDirectory) {
+            val destinationDirectory = uniqueDirectory(File(destinationParent, name.safeFileName()))
+            destinationDirectory.mkdirs()
+
+            var fileCount = 0
+            list(remotePath.toSmbPath())
+                .asSequence()
+                .filterNot { it.fileName == "." || it.fileName == ".." }
+                .forEach { info ->
+                    val childIsDirectory = EnumUtils.isSet(
+                        info.fileAttributes,
+                        FileAttributes.FILE_ATTRIBUTE_DIRECTORY,
+                    )
+                    fileCount += downloadItem(
+                        remotePath = remotePath
+                            .normalizeRemotePath()
+                            .joinRemotePath(info.fileName),
+                        name = info.fileName,
+                        isDirectory = childIsDirectory,
+                        destinationParent = destinationDirectory,
+                    )
+                }
+
+            return fileCount
+        }
+
+        val destinationFile = uniqueFile(File(destinationParent, name.safeFileName()))
+        destinationParent.mkdirs()
+        openFile(
+            remotePath.toSmbPath(),
+            READ_ACCESS,
+            FILE_ATTRIBUTES,
+            SMB2ShareAccess.ALL,
+            SMB2CreateDisposition.FILE_OPEN,
+            READ_OPTIONS,
+        ).use { remoteFile ->
+            FileOutputStream(destinationFile).use { output ->
+                remoteFile.read(output)
+            }
+        }
+        return 1
+    }
+
     private fun closeQuietly(vararg closeables: AutoCloseable) {
         closeables.forEach { closeable ->
             runCatching {
@@ -198,6 +286,40 @@ class SmbFileSource(
     }
 
     private fun String.safeFileName(): String = replace(Regex("[^A-Za-z0-9._-]"), "_")
+        .ifBlank { "download" }
+
+    private fun uniqueDirectory(candidate: File): File {
+        if (!candidate.exists()) {
+            return candidate
+        }
+
+        for (index in 1..9999) {
+            val next = File(candidate.parentFile, "${candidate.name} ($index)")
+            if (!next.exists()) {
+                return next
+            }
+        }
+
+        return File(candidate.parentFile, "${candidate.name} (${System.currentTimeMillis()})")
+    }
+
+    private fun uniqueFile(candidate: File): File {
+        if (!candidate.exists()) {
+            return candidate
+        }
+
+        val extension = candidate.extension.takeIf { it.isNotBlank() }?.let { ".$it" }.orEmpty()
+        val baseName = candidate.name.removeSuffix(extension)
+
+        for (index in 1..9999) {
+            val next = File(candidate.parentFile, "$baseName ($index)$extension")
+            if (!next.exists()) {
+                return next
+            }
+        }
+
+        return File(candidate.parentFile, "$baseName (${System.currentTimeMillis()})$extension")
+    }
 
     private companion object {
         val READ_ACCESS: Set<AccessMask> = EnumSet.of(
