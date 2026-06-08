@@ -1,7 +1,10 @@
 package com.ryo.androidfilemanager.smb
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,7 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,13 +28,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.thumbnail.FileThumbnailRepository
+import com.ryo.androidfilemanager.data.thumbnail.SmbThumbnailRepository
 import com.ryo.androidfilemanager.explorer.FileListItem
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SmbConnectionScreen(
     onOpenFile: (OpenedFile) -> Unit,
@@ -39,8 +47,10 @@ fun SmbConnectionScreen(
         factory = SmbExplorerViewModel.factory(context),
     )
     val uiState = viewModel.uiState
-    val thumbnailRepository = remember(context) {
-        FileThumbnailRepository(context)
+    val thumbnailRepository = remember(context, viewModel) {
+        SmbThumbnailRepository(context) {
+            viewModel.currentSource()
+        }
     }
 
     LaunchedEffect(uiState.openedFile) {
@@ -53,28 +63,70 @@ fun SmbConnectionScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(18.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
             text = "SMB Connection",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
         )
 
-        ConnectionFields(
-            uiState = uiState,
-            viewModel = viewModel,
-        )
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                if (uiState.connected && !uiState.connectionFormExpanded) {
+                    ConnectedSummary(
+                        uiState = uiState,
+                        onEdit = viewModel::editConnection,
+                        onDisconnect = viewModel::disconnect,
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (uiState.hasSavedConnection) "Saved connection" else "Connect to a share",
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        if (uiState.connected) {
+                            OutlinedButton(onClick = viewModel::hideConnectionForm) {
+                                Text(text = "Done")
+                            }
+                        }
+                    }
+                    ConnectionFields(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                    )
+                }
+            }
+        }
 
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OutlinedButton(onClick = viewModel::testConnection) {
                 Text(text = "Test")
             }
             Button(onClick = viewModel::connectAndListRoot) {
-                Text(text = "Connect")
+                Text(text = if (uiState.connected) "Reconnect" else "Connect")
+            }
+            if (uiState.hasSavedConnection && !uiState.connected) {
+                OutlinedButton(onClick = viewModel::clearSavedConnection) {
+                    Text(text = "Clear saved")
+                }
             }
             OutlinedButton(
                 onClick = viewModel::navigateUp,
@@ -123,6 +175,47 @@ fun SmbConnectionScreen(
                     thumbnailRepository = thumbnailRepository,
                     onClick = { viewModel.onFileSelected(file) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectedSummary(
+    uiState: SmbExplorerUiState,
+    onEdit: () -> Unit,
+    onDisconnect: () -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "${uiState.host} / ${uiState.shareName}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = listOfNotNull(
+                        uiState.username.takeIf { it.isNotBlank() }?.let { "User: $it" },
+                        uiState.currentPath.takeIf { it.isNotBlank() }?.let { "Path: /$it" },
+                    ).ifEmpty { listOf("Connected") }.joinToString("  "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onEdit) {
+                Text(text = "Edit")
+            }
+            OutlinedButton(onClick = onDisconnect) {
+                Text(text = "Disconnect")
             }
         }
     }
@@ -179,4 +272,3 @@ private fun ConnectionFields(
         )
     }
 }
-

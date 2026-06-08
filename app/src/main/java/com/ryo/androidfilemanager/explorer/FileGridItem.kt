@@ -1,11 +1,14 @@
 package com.ryo.androidfilemanager.explorer
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +29,8 @@ fun FileGridItem(
 ) {
     Card(
         modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
@@ -41,15 +46,24 @@ fun FileGridItem(
                 thumbnailRepository = thumbnailRepository,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(92.dp),
+                    .height(118.dp),
             )
 
-            Text(
-                text = file.name,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(end = 24.dp),
+                )
+                Text(
+                    text = "...",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd),
+                )
+            }
 
             Text(
                 text = fileSubtitle(file),

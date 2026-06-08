@@ -13,7 +13,9 @@ import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
 import com.ryo.androidfilemanager.data.smb.SmbConnectionInfo
+import com.ryo.androidfilemanager.data.smb.SmbConnectionStore
 import com.ryo.androidfilemanager.data.source.SmbFileSource
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class SmbExplorerUiState(
@@ -27,6 +29,8 @@ data class SmbExplorerUiState(
     val currentPath: String = "",
     val pathStack: List<String> = emptyList(),
     val connected: Boolean = false,
+    val connectionFormExpanded: Boolean = true,
+    val hasSavedConnection: Boolean = false,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val statusMessage: String? = null,
@@ -39,11 +43,27 @@ data class SmbExplorerUiState(
 class SmbExplorerViewModel(
     private val appContext: Context,
     private val smbClient: DefaultSmbClient = DefaultSmbClient(),
+    private val connectionStore: SmbConnectionStore = SmbConnectionStore(appContext),
 ) : ViewModel() {
     var uiState by mutableStateOf(SmbExplorerUiState())
         private set
 
     private var source: SmbFileSource? = null
+    private var activeConnectionInfo: SmbConnectionInfo? = null
+
+    fun currentSource(): SmbFileSource? = source
+
+    init {
+        viewModelScope.launch {
+            connectionStore.savedConnection.first()?.let { info ->
+                applyConnectionInfo(info)
+                uiState = uiState.copy(
+                    hasSavedConnection = true,
+                    statusMessage = "Saved SMB connection loaded.",
+                )
+            }
+        }
+    }
 
     fun updateHost(value: String) {
         uiState = uiState.copy(host = value)
@@ -76,8 +96,10 @@ class SmbExplorerViewModel(
 
             smbClient.testConnection(info)
                 .onSuccess {
+                    connectionStore.saveConnection(info)
                     uiState = uiState.copy(
                         isLoading = false,
+                        hasSavedConnection = true,
                         statusMessage = "SMB connection succeeded.",
                     )
                 }
@@ -94,8 +116,42 @@ class SmbExplorerViewModel(
     fun connectAndListRoot() {
         viewModelScope.launch {
             val info = uiState.toConnectionInfoOrNull() ?: return@launch showInputError()
+            activeConnectionInfo = info
             source = SmbFileSource(appContext, info)
             loadPath(path = "", pathStack = listOf(""))
+        }
+    }
+
+    fun editConnection() {
+        uiState = uiState.copy(connectionFormExpanded = true)
+    }
+
+    fun hideConnectionForm() {
+        uiState = uiState.copy(connectionFormExpanded = false)
+    }
+
+    fun disconnect() {
+        source = null
+        activeConnectionInfo = null
+        uiState = uiState.copy(
+            files = emptyList(),
+            currentPath = "",
+            pathStack = emptyList(),
+            connected = false,
+            connectionFormExpanded = true,
+            statusMessage = "Disconnected from SMB share.",
+            errorMessage = null,
+        )
+    }
+
+    fun clearSavedConnection() {
+        viewModelScope.launch {
+            connectionStore.clearConnection()
+            source = null
+            activeConnectionInfo = null
+            uiState = SmbExplorerUiState(
+                statusMessage = "Saved SMB connection was cleared.",
+            )
         }
     }
 
@@ -130,11 +186,16 @@ class SmbExplorerViewModel(
             runCatching {
                 smbSource.list(path)
             }.onSuccess { files ->
+                activeConnectionInfo?.let { info ->
+                    connectionStore.saveConnection(info)
+                }
                 uiState = uiState.copy(
                     files = files,
                     currentPath = path,
                     pathStack = pathStack,
                     connected = true,
+                    connectionFormExpanded = false,
+                    hasSavedConnection = true,
                     isLoading = false,
                 )
             }.onFailure { throwable ->
@@ -174,6 +235,17 @@ class SmbExplorerViewModel(
         )
     }
 
+    private fun applyConnectionInfo(info: SmbConnectionInfo) {
+        uiState = uiState.copy(
+            host = info.host,
+            shareName = info.shareName,
+            username = info.username.orEmpty(),
+            password = info.password.orEmpty(),
+            domain = info.domain.orEmpty(),
+            port = info.port.toString(),
+        )
+    }
+
     private fun SmbExplorerUiState.toConnectionInfoOrNull(): SmbConnectionInfo? {
         val parsedPort = port.toIntOrNull() ?: return null
         if (host.isBlank() || shareName.isBlank()) {
@@ -198,4 +270,3 @@ class SmbExplorerViewModel(
         }
     }
 }
-

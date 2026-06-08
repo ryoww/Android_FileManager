@@ -8,12 +8,15 @@ import com.hierynomus.mssmb2.SMB2CreateDisposition
 import com.hierynomus.mssmb2.SMB2CreateOptions
 import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.protocol.commons.EnumWithValue.EnumUtils
+import com.hierynomus.smbj.SMBClient
+import com.hierynomus.smbj.share.DiskShare
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.model.SourceType
 import com.ryo.androidfilemanager.data.model.ViewerType
 import com.ryo.androidfilemanager.data.smb.SmbConnectionInfo
 import com.ryo.androidfilemanager.data.smb.SmbReadableFile
+import com.ryo.androidfilemanager.data.smb.toAuthenticationContext
 import com.ryo.androidfilemanager.data.smb.withDiskShare
 import java.io.File
 import java.io.FileOutputStream
@@ -72,6 +75,8 @@ class SmbFileSource(
         if (viewerType == ViewerType.Video || viewerType == ViewerType.Audio) {
             return OpenedFile.Stream(
                 remoteFile = remoteReadableFile(file),
+                name = file.name,
+                mimeType = file.mimeType,
                 viewerType = viewerType,
             )
         }
@@ -80,6 +85,19 @@ class SmbFileSource(
             uri = Uri.fromFile(cacheSmallFile(file)),
             viewerType = viewerType,
         )
+    }
+
+    suspend fun cachePreviewFile(file: FileItem): File {
+        require(!file.isDirectory) {
+            "SMB directory cannot be cached as a preview."
+        }
+
+        val viewerType = detectViewerType(file.name, file.mimeType)
+        require(viewerType != ViewerType.Video && viewerType != ViewerType.Audio) {
+            "SMB media previews are not cached to avoid downloading large files."
+        }
+
+        return cacheSmallFile(file)
     }
 
     private suspend fun cacheSmallFile(file: FileItem): File = withContext(Dispatchers.IO) {
@@ -112,24 +130,50 @@ class SmbFileSource(
         cacheFile
     }
 
-    private fun remoteReadableFile(file: FileItem): SmbReadableFile = SmbReadableFile(
-        size = file.size ?: 0L,
-        readBlock = { position, buffer, offset, length ->
-            withDiskShare(connectionInfo) { share ->
-                share.openFile(
-                    file.path.toSmbPath(),
-                    READ_ACCESS,
-                    FILE_ATTRIBUTES,
-                    SMB2ShareAccess.ALL,
-                    SMB2CreateDisposition.FILE_OPEN,
-                    READ_OPTIONS,
-                ).use { remoteFile ->
-                    remoteFile.read(buffer, position, offset, length)
-                }
+    private suspend fun remoteReadableFile(file: FileItem): SmbReadableFile = withContext(Dispatchers.IO) {
+        val client = SMBClient()
+        val connection = client.connect(connectionInfo.host, connectionInfo.port)
+        val session = connection.authenticate(connectionInfo.toAuthenticationContext())
+        val share = session.connectShare(connectionInfo.shareName)
+
+        require(share is DiskShare) {
+            closeQuietly(share, session, connection, client)
+            "SMB share '${connectionInfo.shareName}' is not a disk share."
+        }
+
+        val smbPath = file.path.toSmbPath()
+        val resolvedSize = file.size?.takeIf { it > 0L }
+            ?: runCatching {
+                share.getFileInformation(smbPath).standardInformation.endOfFile
+            }.getOrDefault(-1L)
+
+        val remoteFile = share.openFile(
+            smbPath,
+            READ_ACCESS,
+            FILE_ATTRIBUTES,
+            SMB2ShareAccess.ALL,
+            SMB2CreateDisposition.FILE_OPEN,
+            READ_OPTIONS,
+        )
+
+        SmbReadableFile(
+            size = resolvedSize,
+            readBlock = { position, buffer, offset, length ->
+                remoteFile.read(buffer, position, offset, length)
+            },
+            closeBlock = {
+                closeQuietly(remoteFile, share, session, connection, client)
+            },
+        )
+    }
+
+    private fun closeQuietly(vararg closeables: AutoCloseable) {
+        closeables.forEach { closeable ->
+            runCatching {
+                closeable.close()
             }
-        },
-        closeBlock = {},
-    )
+        }
+    }
 
     private fun FileItem.cacheKey(): String {
         val raw = listOf(

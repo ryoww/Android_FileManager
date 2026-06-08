@@ -13,7 +13,8 @@ sealed class OpenedFile {
 
     data class Stream(
         val remoteFile: RemoteReadableFile,
+        val name: String? = null,
+        val mimeType: String? = null,
         override val viewerType: ViewerType,
     ) : OpenedFile()
 }
-

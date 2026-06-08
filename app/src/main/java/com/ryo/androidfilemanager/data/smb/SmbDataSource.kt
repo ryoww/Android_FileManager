@@ -28,7 +28,8 @@ class SmbDataSource(
 
     @Throws(IOException::class)
     override fun open(dataSpec: DataSpec): Long {
-        if (dataSpec.position > remoteFile.size) {
+        val knownSize = remoteFile.size >= 0L
+        if (knownSize && dataSpec.position > remoteFile.size) {
             throw IOException("SMB stream position is beyond file size.")
         }
 
@@ -36,7 +37,11 @@ class SmbDataSource(
         openedUri = dataSpec.uri
         readPosition = dataSpec.position
         bytesRemaining = if (dataSpec.length == C.LENGTH_UNSET.toLong()) {
-            remoteFile.size - dataSpec.position
+            if (knownSize) {
+                remoteFile.size - dataSpec.position
+            } else {
+                C.LENGTH_UNSET.toLong()
+            }
         } else {
             dataSpec.length
         }
@@ -62,7 +67,11 @@ class SmbDataSource(
             return C.RESULT_END_OF_INPUT
         }
 
-        val bytesToRead = minOf(length.toLong(), bytesRemaining).toInt()
+        val bytesToRead = if (bytesRemaining == C.LENGTH_UNSET.toLong()) {
+            length
+        } else {
+            minOf(length.toLong(), bytesRemaining).toInt()
+        }
         val bytesRead = runBlocking(Dispatchers.IO) {
             remoteFile.readAt(readPosition, buffer, offset, bytesToRead)
         }
@@ -72,7 +81,9 @@ class SmbDataSource(
         }
 
         readPosition += bytesRead
-        bytesRemaining -= bytesRead
+        if (bytesRemaining != C.LENGTH_UNSET.toLong()) {
+            bytesRemaining -= bytesRead
+        }
 
         openedDataSpec?.let { dataSpec ->
             transferListeners.forEach { listener ->
@@ -91,10 +102,6 @@ class SmbDataSource(
         openedUri = null
         openedDataSpec = null
         bytesRemaining = 0L
-
-        runBlocking(Dispatchers.IO) {
-            remoteFile.close()
-        }
 
         if (opened && dataSpec != null) {
             transferListeners.forEach { listener ->

@@ -34,7 +34,7 @@ suspend fun <T> withDiskShare(
     }
 }
 
-private fun SmbConnectionInfo.toAuthenticationContext(): AuthenticationContext {
+fun SmbConnectionInfo.toAuthenticationContext(): AuthenticationContext {
     if (username.isNullOrBlank()) {
         return AuthenticationContext.anonymous()
     }
@@ -45,4 +45,3 @@ private fun SmbConnectionInfo.toAuthenticationContext(): AuthenticationContext {
         domain.orEmpty(),
     )
 }
-
