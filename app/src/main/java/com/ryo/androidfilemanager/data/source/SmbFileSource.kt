@@ -16,9 +16,9 @@ import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.model.SourceType
 import com.ryo.androidfilemanager.data.model.ViewerType
 import com.ryo.androidfilemanager.data.smb.SmbConnectionInfo
+import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
 import com.ryo.androidfilemanager.data.smb.SmbReadableFile
 import com.ryo.androidfilemanager.data.smb.toAuthenticationContext
-import com.ryo.androidfilemanager.data.smb.withDiskShare
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLConnection
@@ -42,7 +42,7 @@ class SmbFileSource(
     override suspend fun list(path: String): List<FileItem> {
         val directoryPath = path.normalizeRemotePath()
 
-        return withDiskShare(connectionInfo) { share ->
+        return SmbConnectionPool.useShare(connectionInfo) { share ->
             share.list(directoryPath.toSmbPath())
                 .asSequence()
                 .filterNot { it.fileName == "." || it.fileName == ".." }
@@ -106,6 +106,47 @@ class SmbFileSource(
         return cacheSmallFile(file)
     }
 
+    /**
+     * ファイル先頭から最大 [maxBytes] バイトだけ読み取る。
+     * EXIF 埋め込みサムネイル抽出など、全量ダウンロードを避けたい用途向け。
+     */
+    suspend fun readHeadBytes(file: FileItem, maxBytes: Int): ByteArray {
+        require(!file.isDirectory) {
+            "SMB directory cannot be read as a file."
+        }
+
+        return SmbConnectionPool.useShare(connectionInfo) { share ->
+            share.openFile(
+                file.path.toSmbPath(),
+                READ_ACCESS,
+                FILE_ATTRIBUTES,
+                SMB2ShareAccess.ALL,
+                SMB2CreateDisposition.FILE_OPEN,
+                READ_OPTIONS,
+            ).use { remoteFile ->
+                val targetSize = file.size
+                    ?.coerceAtMost(maxBytes.toLong())
+                    ?.toInt()
+                    ?: maxBytes
+                val buffer = ByteArray(targetSize)
+                var totalRead = 0
+                while (totalRead < buffer.size) {
+                    val read = remoteFile.read(
+                        buffer,
+                        totalRead.toLong(),
+                        totalRead,
+                        buffer.size - totalRead,
+                    )
+                    if (read <= 0) {
+                        break
+                    }
+                    totalRead += read
+                }
+                if (totalRead == buffer.size) buffer else buffer.copyOf(totalRead)
+            }
+        }
+    }
+
     suspend fun downloadToDownloads(files: List<FileItem>): SmbDownloadSummary = withContext(Dispatchers.IO) {
         require(files.isNotEmpty()) {
             "Select one or more SMB files to download."
@@ -122,7 +163,7 @@ class SmbFileSource(
         destinationRoot.mkdirs()
 
         var downloadedFileCount = 0
-        withDiskShare(connectionInfo) { share ->
+        SmbConnectionPool.useShare(connectionInfo) { share ->
             files.forEach { file ->
                 downloadedFileCount += share.downloadItem(
                     remotePath = file.path,
@@ -146,8 +187,9 @@ class SmbFileSource(
         }
 
         smbCacheDir.mkdirs()
-        val tempFile = File(smbCacheDir, "${cacheFile.name}.tmp")
-        withDiskShare(connectionInfo) { share ->
+        // ダウンロードは並行に走り得るため、一時ファイル名は呼び出しごとに一意にする
+        val tempFile = File.createTempFile("${cacheFile.name}.", ".tmp", smbCacheDir)
+        SmbConnectionPool.useShare(connectionInfo) { share ->
             share.openFile(
                 file.path.toSmbPath(),
                 READ_ACCESS,

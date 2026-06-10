@@ -15,9 +15,13 @@ import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.local.LocalFolderStore
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.data.model.ViewerType
 import com.ryo.androidfilemanager.data.source.ExternalStorageFileSource
 import com.ryo.androidfilemanager.data.source.FileSource
 import com.ryo.androidfilemanager.data.source.LocalFileSource
+import com.ryo.androidfilemanager.data.source.detectViewerType
+import com.ryo.androidfilemanager.data.thumbnail.FileThumbnailRepository
+import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -47,6 +51,7 @@ data class ExplorerUiState(
 class ExplorerViewModel(
     private val appContext: Context,
     private val folderStore: LocalFolderStore,
+    val thumbnailRepository: ThumbnailRepository,
 ) : ViewModel() {
     var uiState by mutableStateOf(ExplorerUiState())
         private set
@@ -260,6 +265,7 @@ class ExplorerViewModel(
                     files = files,
                     isLoading = false,
                 )
+                prefetchPdfThumbnails(files)
             }.onFailure { throwable ->
                 uiState = uiState.copy(
                     isLoading = false,
@@ -268,6 +274,19 @@ class ExplorerViewModel(
                 )
             }
         }
+    }
+
+    private fun prefetchPdfThumbnails(files: List<FileItem>) {
+        files
+            .asSequence()
+            .filterNot { it.isDirectory }
+            .filter { file -> detectViewerType(file.name, file.mimeType) == ViewerType.Pdf }
+            .sortedWith(
+                compareByDescending<FileItem> { it.modifiedAt ?: Long.MIN_VALUE }
+                    .thenBy { it.name.lowercase() },
+            )
+            .take(PDF_PREFETCH_LIMIT)
+            .forEach { file -> thumbnailRepository.requestThumbnail(file) }
     }
 
     private fun displayNameFor(path: String): String? = when (val fileSource = source) {
@@ -299,8 +318,11 @@ class ExplorerViewModel(
                 ExplorerViewModel(
                     appContext = appContext,
                     folderStore = LocalFolderStore(appContext),
+                    thumbnailRepository = FileThumbnailRepository(appContext),
                 )
             }
         }
+
+        private const val PDF_PREFETCH_LIMIT = 24
     }
 }

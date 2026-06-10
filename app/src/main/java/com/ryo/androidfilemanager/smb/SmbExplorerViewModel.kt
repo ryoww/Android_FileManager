@@ -12,12 +12,19 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.data.model.ViewerType
 import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
 import com.ryo.androidfilemanager.data.smb.SmbConnectionInfo
+import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
 import com.ryo.androidfilemanager.data.smb.SmbConnectionStore
 import com.ryo.androidfilemanager.data.source.SmbFileSource
+import com.ryo.androidfilemanager.data.source.detectViewerType
+import com.ryo.androidfilemanager.data.thumbnail.SmbThumbnailRepository
+import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class SmbExplorerUiState(
     val host: String = "",
@@ -55,6 +62,9 @@ class SmbExplorerViewModel(
         private set
 
     private var source: SmbFileSource? = null
+    val thumbnailRepository: ThumbnailRepository = SmbThumbnailRepository(appContext) {
+        source
+    }
     private var activeConnectionInfo: SmbConnectionInfo? = null
 
     fun currentSource(): SmbFileSource? = source
@@ -139,6 +149,7 @@ class SmbExplorerViewModel(
     fun disconnect() {
         source = null
         activeConnectionInfo = null
+        closeConnectionPool()
         uiState = uiState.copy(
             files = emptyList(),
             selectedPaths = emptySet(),
@@ -156,9 +167,18 @@ class SmbExplorerViewModel(
             connectionStore.clearConnection()
             source = null
             activeConnectionInfo = null
+            withContext(Dispatchers.IO) {
+                SmbConnectionPool.closeAll()
+            }
             uiState = SmbExplorerUiState(
                 statusMessage = "Saved SMB connection was cleared.",
             )
+        }
+    }
+
+    private fun closeConnectionPool() {
+        viewModelScope.launch(Dispatchers.IO) {
+            SmbConnectionPool.closeAll()
         }
     }
 
@@ -268,6 +288,7 @@ class SmbExplorerViewModel(
                     hasSavedConnection = true,
                     isLoading = false,
                 )
+                prefetchSmbPdfThumbnails(files)
             }.onFailure { throwable ->
                 uiState = uiState.copy(
                     isLoading = false,
@@ -276,6 +297,20 @@ class SmbExplorerViewModel(
                 )
             }
         }
+    }
+
+    private fun prefetchSmbPdfThumbnails(files: List<FileItem>) {
+        files
+            .asSequence()
+            .filterNot { it.isDirectory }
+            .filter { file -> detectViewerType(file.name, file.mimeType) == ViewerType.Pdf }
+            .filter { file -> (file.size ?: Long.MAX_VALUE) <= SMB_PDF_AUTO_THUMBNAIL_MAX_BYTES }
+            .sortedWith(
+                compareByDescending<FileItem> { it.modifiedAt ?: Long.MIN_VALUE }
+                    .thenBy { it.name.lowercase() },
+            )
+            .take(SMB_PDF_PREFETCH_LIMIT)
+            .forEach { file -> thumbnailRepository.requestThumbnail(file) }
     }
 
     private fun openFile(file: FileItem) {
@@ -347,5 +382,8 @@ class SmbExplorerViewModel(
                 SmbExplorerViewModel(context.applicationContext)
             }
         }
+
+        private const val SMB_PDF_PREFETCH_LIMIT = 12
+        private const val SMB_PDF_AUTO_THUMBNAIL_MAX_BYTES = 20L * 1024L * 1024L
     }
 }

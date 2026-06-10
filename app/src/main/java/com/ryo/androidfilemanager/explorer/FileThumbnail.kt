@@ -10,6 +10,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -32,11 +34,18 @@ fun FileThumbnail(
     modifier: Modifier = Modifier,
 ) {
     val initialIcon = ThumbnailResult.Icon(IconResolver.resolve(file))
+    val thumbnailVersion by thumbnailRepository.observeThumbnailVersion().collectAsState()
+
+    LaunchedEffect(file.path, file.size, file.modifiedAt, thumbnailRepository) {
+        thumbnailRepository.requestThumbnail(file)
+    }
+
     val thumbnailResult by produceState<ThumbnailResult>(
-        initialValue = initialIcon,
-        key1 = file.path,
-        key2 = file.size,
-        key3 = file.modifiedAt,
+        initialIcon,
+        file.path,
+        file.size,
+        file.modifiedAt,
+        thumbnailVersion,
     ) {
         value = thumbnailRepository.getThumbnail(file)
     }

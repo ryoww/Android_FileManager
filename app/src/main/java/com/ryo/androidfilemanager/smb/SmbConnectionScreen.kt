@@ -30,9 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,7 +44,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.thumbnail.SmbThumbnailRepository
 import com.ryo.androidfilemanager.explorer.FileCollection
 import com.ryo.androidfilemanager.explorer.FileSortOption
 import com.ryo.androidfilemanager.explorer.sortedForDisplay
@@ -60,11 +59,6 @@ fun SmbConnectionScreen(
         factory = SmbExplorerViewModel.factory(context),
     )
     val uiState = viewModel.uiState
-    val thumbnailRepository = remember(context, viewModel) {
-        SmbThumbnailRepository(context) {
-            viewModel.currentSource()
-        }
-    }
     var gridMode by rememberSaveable { mutableStateOf(true) }
     var selectedSortName by rememberSaveable { mutableStateOf(FileSortOption.DEFAULT.name) }
     val selectedSort = FileSortOption.valueOf(selectedSortName)
@@ -193,7 +187,7 @@ fun SmbConnectionScreen(
         FileCollection(
             gridMode = gridMode,
             files = visibleFiles,
-            thumbnailRepository = thumbnailRepository,
+            thumbnailRepository = viewModel.thumbnailRepository,
             selectedPaths = uiState.selectedPaths,
             onFileClick = viewModel::onFileSelected,
             onFileLongClick = viewModel::onFileLongPressed,

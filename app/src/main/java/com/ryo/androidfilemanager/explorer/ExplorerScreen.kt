@@ -44,7 +44,6 @@ import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.model.ViewerType
 import com.ryo.androidfilemanager.data.source.detectViewerType
-import com.ryo.androidfilemanager.data.thumbnail.FileThumbnailRepository
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 
 private enum class FileFilter(
@@ -68,9 +67,6 @@ fun ExplorerScreen(
     val viewModel: ExplorerViewModel = viewModel(
         factory = ExplorerViewModel.factory(context),
     )
-    val thumbnailRepository = remember(context) {
-        FileThumbnailRepository(context)
-    }
     val folderPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -101,7 +97,7 @@ fun ExplorerScreen(
 
     ExplorerScreenContent(
         uiState = uiState,
-        thumbnailRepository = thumbnailRepository,
+        thumbnailRepository = viewModel.thumbnailRepository,
         onChooseFolder = { folderPicker.launch(null) },
         onChooseAnotherFolder = {
             viewModel.chooseAnotherFolder()
