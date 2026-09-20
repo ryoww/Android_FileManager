@@ -1,5 +1,6 @@
 package com.ryo.androidfilemanager.data.smb
 
+import com.ryo.androidfilemanager.core.application.port.SmbConnectionRepository
 import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 
 import android.content.Context
@@ -14,8 +15,8 @@ private val Context.smbConnectionDataStore by preferencesDataStore(name = "smb_c
 
 class SmbConnectionStore(
     private val context: Context,
-) {
-    val savedConnection: Flow<SmbConnectionInfo?> = context.smbConnectionDataStore.data
+) : SmbConnectionRepository {
+    override val savedConnection: Flow<SmbConnectionInfo?> = context.smbConnectionDataStore.data
         .map { preferences ->
             val host = preferences[HOST]?.takeIf { it.isNotBlank() } ?: return@map null
             val shareName = preferences[SHARE_NAME]?.takeIf { it.isNotBlank() } ?: return@map null
@@ -30,7 +31,7 @@ class SmbConnectionStore(
             )
         }
 
-    suspend fun saveConnection(info: SmbConnectionInfo) {
+    override suspend fun save(info: SmbConnectionInfo) {
         context.smbConnectionDataStore.edit { preferences ->
             preferences[HOST] = info.host
             preferences[SHARE_NAME] = info.shareName
@@ -41,7 +42,7 @@ class SmbConnectionStore(
         }
     }
 
-    suspend fun clearConnection() {
+    override suspend fun clear() {
         context.smbConnectionDataStore.edit { preferences ->
             preferences.clear()
         }

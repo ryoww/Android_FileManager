@@ -3,20 +3,26 @@ package com.ryo.androidfilemanager.smb
 import android.content.Context
 import android.net.Uri
 import android.os.SystemClock
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
+import com.ryo.androidfilemanager.core.application.BrowseOutcome
+import com.ryo.androidfilemanager.core.application.ConnectToShareUseCase
+import com.ryo.androidfilemanager.core.application.DirectoryBrowser
+import com.ryo.androidfilemanager.core.application.OpenEntryUseCase
+import com.ryo.androidfilemanager.core.application.ProgressThrottle
+import com.ryo.androidfilemanager.core.application.port.SmbClient
+import com.ryo.androidfilemanager.core.application.port.SmbConnectionRepository
+import com.ryo.androidfilemanager.core.domain.DirectoryNavigation
 import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.FileSelection
 import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.SmbConnectionForm
 import com.ryo.androidfilemanager.core.domain.TransferProgress
 import com.ryo.androidfilemanager.core.domain.ViewerType
-import com.ryo.androidfilemanager.core.domain.withNameFallback
 import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
 import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
@@ -26,21 +32,19 @@ import com.ryo.androidfilemanager.core.domain.detectViewerType
 import com.ryo.androidfilemanager.data.thumbnail.SmbThumbnailRepository
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class SmbExplorerUiState(
-    val host: String = "",
-    val shareName: String = "",
-    val username: String = "",
-    val password: String = "",
-    val domain: String = "",
-    val port: String = "445",
+    val form: SmbConnectionForm = SmbConnectionForm(),
     val files: List<FileItem> = emptyList(),
-    val selectedPaths: Set<String> = emptySet(),
-    val currentPath: String = "",
-    val pathStack: List<String> = emptyList(),
+    val selection: FileSelection = FileSelection(),
+    val navigation: DirectoryNavigation = DirectoryNavigation.Empty,
     val connected: Boolean = false,
     val connectionFormExpanded: Boolean = true,
     val hasSavedConnection: Boolean = false,
@@ -52,143 +56,167 @@ data class SmbExplorerUiState(
     val openedFile: OpenedFile? = null,
     val transferProgress: TransferProgress? = null,
 ) {
+    val currentPath: String
+        get() = navigation.currentPath ?: ""
+
+    val pathStack: List<String>
+        get() = navigation.pathStack
+
     val canNavigateUp: Boolean
-        get() = pathStack.size > 1
+        get() = navigation.canNavigateUp
+
+    val selectedPaths: Set<String>
+        get() = selection.paths
 
     val selectedCount: Int
-        get() = selectedPaths.size
+        get() = selection.count
 }
 
 class SmbExplorerViewModel(
     private val appContext: Context,
-    private val smbClient: DefaultSmbClient = DefaultSmbClient(),
-    private val connectionStore: SmbConnectionStore = SmbConnectionStore(appContext),
+    private val smbClient: SmbClient = DefaultSmbClient(),
+    private val connectionStore: SmbConnectionRepository = SmbConnectionStore(appContext),
 ) : ViewModel() {
-    var uiState by mutableStateOf(SmbExplorerUiState())
-        private set
+    private val _uiState = MutableStateFlow(SmbExplorerUiState())
+    val uiState: StateFlow<SmbExplorerUiState> = _uiState.asStateFlow()
 
     private var source: SmbFileSource? = null
+    private var browser: DirectoryBrowser? = null
+    private var openEntry: OpenEntryUseCase? = null
     val thumbnailRepository: ThumbnailRepository = SmbThumbnailRepository(appContext) {
         source
     }
     private var activeConnectionInfo: SmbConnectionInfo? = null
-    private var lastProgressEmitAt = 0L
+    private val progressThrottle = ProgressThrottle(
+        intervalMs = PROGRESS_EMIT_INTERVAL_MS,
+        now = SystemClock::elapsedRealtime,
+    )
 
     fun currentSource(): SmbFileSource? = source
 
     // 転送はIOスレッドから呼ばれるため、uiState.copy の read-modify-write 競合を避けて
     // Mainへ寄せて反映する。完了フレームは間引かず必ず通す。
     private fun reportProgress(progress: TransferProgress) {
-        val now = SystemClock.elapsedRealtime()
-        val totalBytes = progress.totalBytes
-        val isFinal = totalBytes != null && progress.bytesTransferred >= totalBytes
-        if (!isFinal && now - lastProgressEmitAt < PROGRESS_EMIT_INTERVAL_MS) return
-        lastProgressEmitAt = now
-        viewModelScope.launch { uiState = uiState.copy(transferProgress = progress) }
+        if (!progressThrottle.shouldEmit(progress)) return
+        viewModelScope.launch { _uiState.update { it.copy(transferProgress = progress) } }
     }
 
     init {
         viewModelScope.launch {
             connectionStore.savedConnection.first()?.let { info ->
                 applyConnectionInfo(info)
-                uiState = uiState.copy(
-                    hasSavedConnection = true,
-                    statusMessage = "Saved SMB connection loaded.",
-                )
+                _uiState.update {
+                    it.copy(
+                        hasSavedConnection = true,
+                        statusMessage = "Saved SMB connection loaded.",
+                    )
+                }
             }
         }
     }
 
     fun updateHost(value: String) {
-        uiState = uiState.copy(host = value)
+        _uiState.update { it.copy(form = it.form.copy(host = value)) }
     }
 
     fun updateShareName(value: String) {
-        uiState = uiState.copy(shareName = value)
+        _uiState.update { it.copy(form = it.form.copy(shareName = value)) }
     }
 
     fun updateUsername(value: String) {
-        uiState = uiState.copy(username = value)
+        _uiState.update { it.copy(form = it.form.copy(username = value)) }
     }
 
     fun updatePassword(value: String) {
-        uiState = uiState.copy(password = value)
+        _uiState.update { it.copy(form = it.form.copy(password = value)) }
     }
 
     fun updateDomain(value: String) {
-        uiState = uiState.copy(domain = value)
+        _uiState.update { it.copy(form = it.form.copy(domain = value)) }
     }
 
     fun updatePort(value: String) {
-        uiState = uiState.copy(port = value.filter { it.isDigit() }.ifBlank { "445" })
+        _uiState.update { it.copy(form = it.form.withPortInput(value)) }
     }
 
     fun testConnection() {
         viewModelScope.launch {
-            val info = uiState.toConnectionInfoOrNull() ?: return@launch showInputError()
-            uiState = uiState.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            val form = _uiState.value.form
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, statusMessage = null) }
 
-            smbClient.testConnection(info)
+            ConnectToShareUseCase(smbClient, connectionStore).test(form)
                 .onSuccess {
-                    connectionStore.saveConnection(info)
-                    uiState = uiState.copy(
-                        isLoading = false,
-                        hasSavedConnection = true,
-                        statusMessage = "SMB connection succeeded.",
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            hasSavedConnection = true,
+                            statusMessage = "SMB connection succeeded.",
+                        )
+                    }
                 }
                 .onFailure { throwable ->
-                    uiState = uiState.copy(
-                        isLoading = false,
-                        errorMessage = throwable.message
-                            ?: "SMB connection failed. Check host, share name, username, and password.",
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = throwable.message
+                                ?: "SMB connection failed. Check host, share name, username, and password.",
+                        )
+                    }
                 }
         }
     }
 
     fun connectAndListRoot() {
         viewModelScope.launch {
-            val info = uiState.toConnectionInfoOrNull() ?: return@launch showInputError()
+            val form = _uiState.value.form
+            val info = form.toConnectionInfo().getOrElse { return@launch showInputError() }
             activeConnectionInfo = info
-            source = SmbFileSource(appContext, info)
-            loadPath(path = "", pathStack = listOf(""))
+            val fileSource = SmbFileSource(appContext, info)
+            source = fileSource
+            browser = DirectoryBrowser(fileSource)
+            openEntry = OpenEntryUseCase(fileSource)
+            loadRoot()
         }
     }
 
     fun editConnection() {
-        uiState = uiState.copy(connectionFormExpanded = true)
+        _uiState.update { it.copy(connectionFormExpanded = true) }
     }
 
     fun hideConnectionForm() {
-        uiState = uiState.copy(connectionFormExpanded = false)
+        _uiState.update { it.copy(connectionFormExpanded = false) }
     }
 
     fun disconnect() {
         source = null
+        browser = null
+        openEntry = null
         activeConnectionInfo = null
         closeConnectionPool()
-        uiState = uiState.copy(
-            files = emptyList(),
-            selectedPaths = emptySet(),
-            currentPath = "",
-            pathStack = emptyList(),
-            connected = false,
-            connectionFormExpanded = true,
-            statusMessage = "Disconnected from SMB share.",
-            errorMessage = null,
-        )
+        _uiState.update {
+            it.copy(
+                files = emptyList(),
+                selection = FileSelection(),
+                navigation = DirectoryNavigation.Empty,
+                connected = false,
+                connectionFormExpanded = true,
+                statusMessage = "Disconnected from SMB share.",
+                errorMessage = null,
+            )
+        }
     }
 
     fun clearSavedConnection() {
         viewModelScope.launch {
-            connectionStore.clearConnection()
+            connectionStore.clear()
             source = null
+            browser = null
+            openEntry = null
             activeConnectionInfo = null
             withContext(Dispatchers.IO) {
                 SmbConnectionPool.closeAll()
             }
-            uiState = SmbExplorerUiState(
+            _uiState.value = SmbExplorerUiState(
                 statusMessage = "Saved SMB connection was cleared.",
             )
         }
@@ -201,14 +229,13 @@ class SmbExplorerViewModel(
     }
 
     fun onFileSelected(file: FileItem) {
-        if (uiState.selectedPaths.isNotEmpty()) {
+        if (_uiState.value.selection.isActive) {
             toggleSelection(file)
             return
         }
 
         if (file.isDirectory) {
-            val nextStack = uiState.pathStack + file.path
-            loadPath(path = file.path, pathStack = nextStack)
+            openDirectory(file)
         } else {
             openFile(file)
         }
@@ -219,147 +246,200 @@ class SmbExplorerViewModel(
     }
 
     fun clearSelection() {
-        uiState = uiState.copy(selectedPaths = emptySet())
+        _uiState.update { it.copy(selection = it.selection.clear()) }
     }
 
     fun navigateUp() {
-        val nextStack = uiState.pathStack.dropLast(1)
-        val nextPath = nextStack.lastOrNull() ?: return
-        loadPath(path = nextPath, pathStack = nextStack)
+        val directoryBrowser = browser ?: return
+        val state = _uiState.value
+        if (!state.navigation.canNavigateUp) return
+
+        browse { directoryBrowser.up(state.navigation) }
     }
 
     fun reload() {
         // 明示的なリロードでは、TTL 中の失敗サムネイルも再試行対象に戻す
         thumbnailRepository.resetFailedThumbnails()
-        loadPath(path = uiState.currentPath, pathStack = uiState.pathStack.ifEmpty { listOf("") })
+        val directoryBrowser = browser ?: return
+        val navigation = _uiState.value.navigation.let {
+            if (it.pathStack.isEmpty()) DirectoryNavigation.root("") else it
+        }
+
+        browse { directoryBrowser.reload(navigation) }
     }
 
     fun consumeOpenedFile() {
-        uiState = uiState.copy(openedFile = null)
+        _uiState.update { it.copy(openedFile = null) }
     }
 
     fun downloadSelectedFiles() {
         val smbSource = source ?: return
-        val selectedFiles = uiState.files.filter { it.path in uiState.selectedPaths }
+        val state = _uiState.value
+        val selectedFiles = state.selection.selectedFrom(state.files)
         if (selectedFiles.isEmpty()) {
-            uiState = uiState.copy(
-                errorMessage = "Select SMB files or folders to download.",
-            )
+            _uiState.update {
+                it.copy(errorMessage = "Select SMB files or folders to download.")
+            }
             return
         }
 
         if (!FileManagerAccess.hasAllFilesAccess()) {
-            uiState = uiState.copy(
-                errorMessage = "Enable full storage access before downloading SMB files to Download.",
-            )
+            _uiState.update {
+                it.copy(errorMessage = "Enable full storage access before downloading SMB files to Download.")
+            }
             return
         }
 
         viewModelScope.launch {
-            uiState = uiState.copy(
-                isLoading = true,
-                isDownloading = true,
-                errorMessage = null,
-                statusMessage = "Downloading ${selectedFiles.size} selected item(s)...",
-            )
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    isDownloading = true,
+                    errorMessage = null,
+                    statusMessage = "Downloading ${selectedFiles.size} selected item(s)...",
+                )
+            }
 
             runCatching {
                 smbSource.downloadToDownloads(selectedFiles, ::reportProgress)
             }.onSuccess { summary ->
-                uiState = uiState.copy(
-                    selectedPaths = emptySet(),
-                    isLoading = false,
-                    isDownloading = false,
-                    statusMessage = "Downloaded ${summary.fileCount} file(s) to ${summary.destinationPath}.",
-                    transferProgress = null,
-                )
+                _uiState.update {
+                    it.copy(
+                        selection = FileSelection(),
+                        isLoading = false,
+                        isDownloading = false,
+                        statusMessage = "Downloaded ${summary.fileCount} file(s) to ${summary.destinationPath}.",
+                        transferProgress = null,
+                    )
+                }
             }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    isDownloading = false,
-                    errorMessage = throwable.message ?: "SMB download failed.",
-                    transferProgress = null,
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isDownloading = false,
+                        errorMessage = throwable.message ?: "SMB download failed.",
+                        transferProgress = null,
+                    )
+                }
             }
         }
     }
 
     fun uploadFiles(uris: List<Uri>) {
         val smbSource = source ?: return
+        val directoryBrowser = browser ?: return
         if (uris.isEmpty()) {
             return
         }
 
-        val destinationPath = uiState.currentPath
-        val destinationStack = uiState.pathStack.ifEmpty { listOf("") }
+        val state = _uiState.value
+        val destinationPath = state.currentPath
+        val destinationNavigation = if (state.navigation.pathStack.isEmpty()) {
+            DirectoryNavigation.root("")
+        } else {
+            state.navigation
+        }
         viewModelScope.launch {
-            uiState = uiState.copy(
-                isLoading = true,
-                isUploading = true,
-                errorMessage = null,
-                statusMessage = "Uploading ${uris.size} selected file(s)...",
-            )
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    isUploading = true,
+                    errorMessage = null,
+                    statusMessage = "Uploading ${uris.size} selected file(s)...",
+                )
+            }
 
             runCatching {
                 smbSource.uploadFromUris(uris, destinationPath, ::reportProgress)
             }.onSuccess { summary ->
-                uiState = uiState.copy(isUploading = false, transferProgress = null)
-                loadPath(
-                    path = destinationPath,
-                    pathStack = destinationStack,
-                    successMessage = "Uploaded ${summary.fileCount} file(s) to ${summary.destinationPath}.",
-                )
+                _uiState.update { it.copy(isUploading = false, transferProgress = null) }
+                runCatching {
+                    directoryBrowser.reload(destinationNavigation)
+                }.onSuccess { outcome ->
+                    applyBrowseOutcome(
+                        outcome,
+                        successMessage = "Uploaded ${summary.fileCount} file(s) to ${summary.destinationPath}.",
+                    )
+                }.onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = throwable.message
+                                ?: "SMB directory listing failed. Check connection and permissions.",
+                        )
+                    }
+                }
             }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    isUploading = false,
-                    errorMessage = throwable.message ?: "SMB upload failed.",
-                    transferProgress = null,
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isUploading = false,
+                        errorMessage = throwable.message ?: "SMB upload failed.",
+                        transferProgress = null,
+                    )
+                }
             }
         }
     }
 
-    private fun loadPath(
-        path: String,
-        pathStack: List<String>,
-        successMessage: String? = null,
-    ) {
-        val smbSource = source ?: return
+    private fun loadRoot() {
+        val directoryBrowser = browser ?: return
+        val navigation = DirectoryNavigation.root("")
 
+        browse { directoryBrowser.reload(navigation) }
+    }
+
+    private fun openDirectory(file: FileItem) {
+        val directoryBrowser = browser ?: return
+
+        browse { directoryBrowser.enter(_uiState.value.navigation, file.path) }
+    }
+
+    // 4 つの遷移（ルート読込 / 階層移動 / 上へ / 再読込）は「読み込み中にして取得し、
+    // 成功なら状態へ反映、失敗なら同じ文言でエラー表示」という流れが同じなので 1 箇所にまとめる
+    private fun browse(load: suspend () -> BrowseOutcome?) {
         viewModelScope.launch {
-            uiState = uiState.copy(
-                selectedPaths = emptySet(),
-                isLoading = true,
-                errorMessage = null,
-                statusMessage = null,
-            )
-            runCatching {
-                smbSource.list(path)
-            }.onSuccess { files ->
-                activeConnectionInfo?.let { info ->
-                    connectionStore.saveConnection(info)
-                }
-                uiState = uiState.copy(
-                    files = files,
-                    selectedPaths = emptySet(),
-                    currentPath = path,
-                    pathStack = pathStack,
-                    connected = true,
-                    connectionFormExpanded = false,
-                    hasSavedConnection = true,
-                    isLoading = false,
-                    statusMessage = successMessage,
-                )
-                prefetchSmbPdfThumbnails(files)
-            }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = throwable.message
-                        ?: "SMB directory listing failed. Check connection and permissions.",
+            _uiState.update {
+                it.copy(
+                    selection = FileSelection(),
+                    isLoading = true,
+                    errorMessage = null,
+                    statusMessage = null,
                 )
             }
+            runCatching { load() }
+                .onSuccess { outcome ->
+                    if (outcome != null) applyBrowseOutcome(outcome)
+                }
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = throwable.message
+                                ?: "SMB directory listing failed. Check connection and permissions.",
+                        )
+                    }
+                }
         }
+    }
+
+    private suspend fun applyBrowseOutcome(outcome: BrowseOutcome, successMessage: String? = null) {
+        activeConnectionInfo?.let { info ->
+            connectionStore.save(info)
+        }
+        _uiState.update {
+            it.copy(
+                files = outcome.entries,
+                selection = FileSelection(),
+                navigation = outcome.navigation,
+                connected = true,
+                connectionFormExpanded = false,
+                hasSavedConnection = true,
+                isLoading = false,
+                statusMessage = successMessage,
+            )
+        }
+        prefetchSmbPdfThumbnails(outcome.entries)
     }
 
     private fun prefetchSmbPdfThumbnails(files: List<FileItem>) {
@@ -376,68 +456,46 @@ class SmbExplorerViewModel(
     }
 
     private fun openFile(file: FileItem) {
-        val smbSource = source ?: return
+        val openEntryUseCase = openEntry ?: return
 
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, statusMessage = null) }
             runCatching {
-                smbSource.open(file, ::reportProgress)
+                openEntryUseCase(file, ::reportProgress)
             }.onSuccess { openedFile ->
-                uiState = uiState.copy(
-                    openedFile = openedFile.withNameFallback(file.name),
-                    isLoading = false,
-                    transferProgress = null,
-                )
+                _uiState.update {
+                    it.copy(
+                        openedFile = openedFile,
+                        isLoading = false,
+                        transferProgress = null,
+                    )
+                }
             }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = throwable.message ?: "SMB file could not be opened.",
-                    transferProgress = null,
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message ?: "SMB file could not be opened.",
+                        transferProgress = null,
+                    )
+                }
             }
         }
     }
 
     private fun showInputError() {
-        uiState = uiState.copy(
-            errorMessage = "Host and share name are required. Port must be a valid number.",
-        )
+        _uiState.update {
+            it.copy(errorMessage = "Host and share name are required. Port must be a valid number.")
+        }
     }
 
     private fun toggleSelection(file: FileItem) {
-        val nextSelection = if (file.path in uiState.selectedPaths) {
-            uiState.selectedPaths - file.path
-        } else {
-            uiState.selectedPaths + file.path
+        _uiState.update {
+            it.copy(selection = it.selection.toggle(file.path), errorMessage = null)
         }
-        uiState = uiState.copy(selectedPaths = nextSelection, errorMessage = null)
     }
 
     private fun applyConnectionInfo(info: SmbConnectionInfo) {
-        uiState = uiState.copy(
-            host = info.host,
-            shareName = info.shareName,
-            username = info.username.orEmpty(),
-            password = info.password.orEmpty(),
-            domain = info.domain.orEmpty(),
-            port = info.port.toString(),
-        )
-    }
-
-    private fun SmbExplorerUiState.toConnectionInfoOrNull(): SmbConnectionInfo? {
-        val parsedPort = port.toIntOrNull() ?: return null
-        if (host.isBlank() || shareName.isBlank()) {
-            return null
-        }
-
-        return SmbConnectionInfo(
-            host = host.trim(),
-            shareName = shareName.trim(),
-            username = username.takeIf { it.isNotBlank() },
-            password = password.takeIf { it.isNotBlank() },
-            domain = domain.takeIf { it.isNotBlank() },
-            port = parsedPort,
-        )
+        _uiState.update { it.copy(form = SmbConnectionForm.from(info)) }
     }
 
     companion object {

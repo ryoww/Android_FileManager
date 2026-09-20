@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.content.res.Configuration
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.FileSortOption
@@ -47,7 +48,7 @@ fun SmbConnectionScreen(
     val viewModel: SmbExplorerViewModel = viewModel(
         factory = SmbExplorerViewModel.factory(context),
     )
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val uploadPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->

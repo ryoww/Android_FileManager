@@ -60,7 +60,7 @@ internal fun ConnectedSummary(
                     maxLines = 1,
                 )
                 Text(
-                    text = "${uiState.host} / ${uiState.shareName}",
+                    text = "${uiState.form.host} / ${uiState.form.shareName}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,

@@ -112,40 +112,40 @@ private fun ConnectionFields(
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedTextField(
-                value = uiState.host,
+                value = uiState.form.host,
                 onValueChange = onHostChange,
                 label = { Text(text = "Host") },
                 modifier = Modifier.weight(1f),
             )
             OutlinedTextField(
-                value = uiState.port,
+                value = uiState.form.port,
                 onValueChange = onPortChange,
                 label = { Text(text = "Port") },
                 modifier = Modifier.weight(0.45f),
             )
         }
         OutlinedTextField(
-            value = uiState.shareName,
+            value = uiState.form.shareName,
             onValueChange = onShareNameChange,
             label = { Text(text = "Share name") },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedTextField(
-                value = uiState.username,
+                value = uiState.form.username,
                 onValueChange = onUsernameChange,
                 label = { Text(text = "Username") },
                 modifier = Modifier.weight(1f),
             )
             OutlinedTextField(
-                value = uiState.domain,
+                value = uiState.form.domain,
                 onValueChange = onDomainChange,
                 label = { Text(text = "Domain") },
                 modifier = Modifier.weight(1f),
             )
         }
         OutlinedTextField(
-            value = uiState.password,
+            value = uiState.form.password,
             onValueChange = onPasswordChange,
             label = { Text(text = "Password") },
             visualTransformation = PasswordVisualTransformation(),

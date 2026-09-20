@@ -37,6 +37,7 @@ import android.content.res.Configuration
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.core.domain.FileItem
@@ -66,7 +67,7 @@ fun ExplorerScreen(
             viewModel.onFolderSelected(uri)
         }
     }
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->

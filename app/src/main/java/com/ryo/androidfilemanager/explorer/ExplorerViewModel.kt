@@ -3,9 +3,6 @@ package com.ryo.androidfilemanager.explorer
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -13,17 +10,24 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.local.LocalFolderStore
+import com.ryo.androidfilemanager.core.application.BrowseOutcome
+import com.ryo.androidfilemanager.core.application.DirectoryBrowser
+import com.ryo.androidfilemanager.core.application.OpenEntryUseCase
+import com.ryo.androidfilemanager.core.domain.DirectoryNavigation
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.ViewerType
-import com.ryo.androidfilemanager.core.domain.withNameFallback
 import com.ryo.androidfilemanager.data.source.ExternalStorageFileSource
 import com.ryo.androidfilemanager.core.application.port.FileSource
 import com.ryo.androidfilemanager.data.source.LocalFileSource
 import com.ryo.androidfilemanager.core.domain.detectViewerType
 import com.ryo.androidfilemanager.data.thumbnail.FileThumbnailRepository
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class ExplorerStorageMode {
@@ -36,8 +40,7 @@ data class ExplorerUiState(
     val hasFullStorageAccess: Boolean = false,
     val storageMode: ExplorerStorageMode = ExplorerStorageMode.SAF,
     val rootName: String? = null,
-    val currentPath: String? = null,
-    val pathStack: List<String> = emptyList(),
+    val navigation: DirectoryNavigation = DirectoryNavigation.Empty,
     val files: List<FileItem> = emptyList(),
     val openedFile: OpenedFile? = null,
     val navigateUpLabel: String = "Parent Folder",
@@ -45,8 +48,11 @@ data class ExplorerUiState(
     val errorMessage: String? = null,
     val statusMessage: String? = null,
 ) {
+    val currentPath: String?
+        get() = navigation.currentPath
+
     val canNavigateUp: Boolean
-        get() = pathStack.size > 1
+        get() = navigation.canNavigateUp
 }
 
 class ExplorerViewModel(
@@ -54,10 +60,12 @@ class ExplorerViewModel(
     private val folderStore: LocalFolderStore,
     val thumbnailRepository: ThumbnailRepository,
 ) : ViewModel() {
-    var uiState by mutableStateOf(ExplorerUiState())
-        private set
+    private val _uiState = MutableStateFlow(ExplorerUiState())
+    val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
 
     private var source: FileSource? = null
+    private var browser: DirectoryBrowser? = null
+    private var openEntry: OpenEntryUseCase? = null
     private var sourceMode: ExplorerStorageMode? = null
     private var savedTreeUriString: String? = null
 
@@ -76,11 +84,13 @@ class ExplorerViewModel(
                 persistFolderPermission(uri)
                 folderStore.saveRootTreeUri(uri)
             }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = throwable.message
-                        ?: "Local folder permission could not be saved. Choose the folder again.",
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message
+                            ?: "Local folder permission could not be saved. Choose the folder again.",
+                    )
+                }
             }
         }
     }
@@ -94,7 +104,7 @@ class ExplorerViewModel(
     }
 
     fun consumeOpenedFile() {
-        uiState = uiState.copy(openedFile = null)
+        _uiState.update { it.copy(openedFile = null) }
     }
 
     fun refreshStorageAccess() {
@@ -104,38 +114,79 @@ class ExplorerViewModel(
             if (sourceMode != ExplorerStorageMode.FILE_MANAGER) {
                 loadDeviceStorage()
             } else {
-                uiState = uiState.copy(hasFullStorageAccess = true)
+                _uiState.update { it.copy(hasFullStorageAccess = true) }
             }
             return
         }
 
         if (sourceMode == ExplorerStorageMode.FILE_MANAGER) {
             source = null
+            browser = null
+            openEntry = null
             sourceMode = null
         }
 
         val uriString = savedTreeUriString
         if (uriString == null) {
-            uiState = ExplorerUiState(
+            _uiState.value = ExplorerUiState(
                 hasFullStorageAccess = false,
                 statusMessage = "Enable full storage access to browse Download directly, or choose a SAF-compatible folder.",
             )
         } else if (sourceMode != ExplorerStorageMode.SAF) {
             loadSafRoot(uriString)
         } else {
-            uiState = uiState.copy(hasFullStorageAccess = false)
+            _uiState.update { it.copy(hasFullStorageAccess = false) }
         }
     }
 
     fun navigateUp() {
-        val nextStack = uiState.pathStack.dropLast(1)
-        val nextPath = nextStack.lastOrNull() ?: return
-        loadPath(path = nextPath, pathStack = nextStack)
+        val directoryBrowser = browser ?: return
+        val state = _uiState.value
+        if (!state.navigation.canNavigateUp) return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            }
+            runCatching {
+                directoryBrowser.up(state.navigation)
+            }.onSuccess { outcome ->
+                if (outcome == null) return@launch
+                applyBrowseOutcome(outcome)
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message
+                            ?: "Local folder listing failed. Check folder permission and try again.",
+                    )
+                }
+            }
+        }
     }
 
     fun reload() {
-        val currentPath = uiState.currentPath ?: return
-        loadPath(path = currentPath, pathStack = uiState.pathStack)
+        val directoryBrowser = browser ?: return
+        if (_uiState.value.currentPath == null) return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            }
+            runCatching {
+                directoryBrowser.reload(_uiState.value.navigation)
+            }.onSuccess { outcome ->
+                applyBrowseOutcome(outcome)
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message
+                            ?: "Local folder listing failed. Check folder permission and try again.",
+                    )
+                }
+            }
+        }
     }
 
     fun chooseAnotherFolder() {
@@ -150,6 +201,8 @@ class ExplorerViewModel(
                 ExternalStorageFileSource()
             }.onSuccess { fileSource ->
                 source = fileSource
+                browser = DirectoryBrowser(fileSource)
+                openEntry = OpenEntryUseCase(fileSource)
                 sourceMode = ExplorerStorageMode.FILE_MANAGER
                 val startPath = fileSource.defaultStartPath
                 val rootStack = if (startPath == fileSource.rootPath) {
@@ -157,22 +210,24 @@ class ExplorerViewModel(
                 } else {
                     listOf(fileSource.rootPath, startPath)
                 }
-                uiState = ExplorerUiState(
+                val rootNavigation = DirectoryNavigation(rootStack)
+                _uiState.value = ExplorerUiState(
                     hasFolderPermission = true,
                     hasFullStorageAccess = true,
                     storageMode = ExplorerStorageMode.FILE_MANAGER,
                     rootName = fileSource.displayName(startPath),
-                    currentPath = startPath,
-                    pathStack = rootStack,
+                    navigation = rootNavigation,
                     navigateUpLabel = fileSource.navigateUpLabel(rootStack),
                     isLoading = true,
                     statusMessage = "File manager access is enabled. Browsing Download with direct storage access.",
                 )
-                loadPath(path = startPath, pathStack = rootStack)
+                loadInitial(rootNavigation)
             }.onFailure { throwable ->
                 source = null
+                browser = null
+                openEntry = null
                 sourceMode = null
-                uiState = ExplorerUiState(
+                _uiState.value = ExplorerUiState(
                     hasFullStorageAccess = true,
                     errorMessage = throwable.message
                         ?: "Device storage could not be opened. Check full storage access.",
@@ -187,23 +242,26 @@ class ExplorerViewModel(
                 LocalFileSource(appContext, Uri.parse(uriString))
             }.onSuccess { localSource ->
                 source = localSource
+                browser = DirectoryBrowser(localSource)
+                openEntry = OpenEntryUseCase(localSource)
                 sourceMode = ExplorerStorageMode.SAF
-                val rootStack = listOf(localSource.rootPath)
-                uiState = ExplorerUiState(
+                val rootNavigation = DirectoryNavigation.root(localSource.rootPath)
+                _uiState.value = ExplorerUiState(
                     hasFolderPermission = true,
                     hasFullStorageAccess = false,
                     storageMode = ExplorerStorageMode.SAF,
                     rootName = localSource.rootName,
-                    currentPath = localSource.rootPath,
-                    pathStack = rootStack,
+                    navigation = rootNavigation,
                     navigateUpLabel = "Parent Folder",
                     isLoading = true,
                 )
-                loadPath(path = localSource.rootPath, pathStack = rootStack)
+                loadInitial(rootNavigation)
             }.onFailure { throwable ->
                 source = null
+                browser = null
+                openEntry = null
                 sourceMode = null
-                uiState = ExplorerUiState(
+                _uiState.value = ExplorerUiState(
                     errorMessage = throwable.message
                         ?: "Local folder access failed. Choose the folder again.",
                 )
@@ -211,70 +269,91 @@ class ExplorerViewModel(
         }
     }
 
+    // ルート読み込み直後は DirectoryBrowser.reload を使い、pathStack を変えずに一覧だけ取得する
+    private fun loadInitial(navigation: DirectoryNavigation) {
+        val directoryBrowser = browser ?: return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            }
+            runCatching {
+                directoryBrowser.reload(navigation)
+            }.onSuccess { outcome ->
+                applyBrowseOutcome(outcome)
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message
+                            ?: "Local folder listing failed. Check folder permission and try again.",
+                    )
+                }
+            }
+        }
+    }
+
     private fun openDirectory(file: FileItem) {
-        val nextStack = uiState.pathStack + file.path
-        loadPath(path = file.path, pathStack = nextStack)
+        val directoryBrowser = browser ?: return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            }
+            runCatching {
+                directoryBrowser.enter(_uiState.value.navigation, file.path)
+            }.onSuccess { outcome ->
+                applyBrowseOutcome(outcome)
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message
+                            ?: "Local folder listing failed. Check folder permission and try again.",
+                    )
+                }
+            }
+        }
     }
 
     private fun openFile(file: FileItem) {
-        val fileSource = source ?: return
+        val openEntryUseCase = openEntry ?: return
 
         viewModelScope.launch {
-            uiState = uiState.copy(
-                isLoading = true,
-                errorMessage = null,
-                statusMessage = null,
-            )
+            _uiState.update {
+                it.copy(isLoading = true, errorMessage = null, statusMessage = null)
+            }
 
             runCatching {
-                fileSource.open(file)
+                openEntryUseCase(file)
             }.onSuccess { openedFile ->
-                uiState = uiState.copy(
-                    openedFile = openedFile.withNameFallback(file.name),
-                    isLoading = false,
-                )
+                _uiState.update { it.copy(openedFile = openedFile, isLoading = false) }
             }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = throwable.message
-                        ?: "File could not be opened. Check local folder permission and try again.",
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message
+                            ?: "File could not be opened. Check local folder permission and try again.",
+                    )
+                }
             }
         }
     }
 
-    private fun loadPath(path: String, pathStack: List<String>) {
-        val fileSource = source ?: return
-
-        viewModelScope.launch {
-            uiState = uiState.copy(
-                isLoading = true,
-                errorMessage = null,
-                statusMessage = null,
+    private fun applyBrowseOutcome(outcome: BrowseOutcome) {
+        val path = requireNotNull(outcome.navigation.currentPath)
+        _uiState.update {
+            it.copy(
+                hasFolderPermission = true,
+                storageMode = sourceMode ?: it.storageMode,
+                rootName = displayNameFor(path),
+                navigation = outcome.navigation,
+                navigateUpLabel = navigateUpLabelFor(outcome.navigation.pathStack),
+                files = outcome.entries,
+                isLoading = false,
             )
-
-            runCatching {
-                fileSource.list(path)
-            }.onSuccess { files ->
-                uiState = uiState.copy(
-                    hasFolderPermission = true,
-                    storageMode = sourceMode ?: uiState.storageMode,
-                    rootName = displayNameFor(path),
-                    currentPath = path,
-                    pathStack = pathStack,
-                    navigateUpLabel = navigateUpLabelFor(pathStack),
-                    files = files,
-                    isLoading = false,
-                )
-                prefetchPdfThumbnails(files)
-            }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = throwable.message
-                        ?: "Local folder listing failed. Check folder permission and try again.",
-                )
-            }
         }
+        prefetchPdfThumbnails(outcome.entries)
     }
 
     private fun prefetchPdfThumbnails(files: List<FileItem>) {
@@ -293,7 +372,7 @@ class ExplorerViewModel(
     private fun displayNameFor(path: String): String? = when (val fileSource = source) {
         is ExternalStorageFileSource -> fileSource.displayName(path)
         is LocalFileSource -> fileSource.rootName
-        else -> uiState.rootName
+        else -> _uiState.value.rootName
     }
 
     private fun navigateUpLabelFor(pathStack: List<String>): String = when (val fileSource = source) {
