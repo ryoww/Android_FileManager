@@ -4,10 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.local.LocalFolderStore
 import com.ryo.androidfilemanager.core.application.BrowseOutcome
@@ -21,7 +18,6 @@ import com.ryo.androidfilemanager.data.source.ExternalStorageFileSource
 import com.ryo.androidfilemanager.core.application.port.FileSource
 import com.ryo.androidfilemanager.data.source.LocalFileSource
 import com.ryo.androidfilemanager.core.domain.detectViewerType
-import com.ryo.androidfilemanager.data.thumbnail.FileThumbnailRepository
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -392,17 +388,6 @@ class ExplorerViewModel(
     }
 
     companion object {
-        fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val appContext = context.applicationContext
-                ExplorerViewModel(
-                    appContext = appContext,
-                    folderStore = LocalFolderStore(appContext),
-                    thumbnailRepository = FileThumbnailRepository(appContext),
-                )
-            }
-        }
-
         private const val PDF_PREFETCH_LIMIT = 24
     }
 }

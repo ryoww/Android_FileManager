@@ -4,10 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.core.application.BrowseOutcome
 import com.ryo.androidfilemanager.core.application.ConnectToShareUseCase
@@ -23,10 +20,8 @@ import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.SmbConnectionForm
 import com.ryo.androidfilemanager.core.domain.TransferProgress
 import com.ryo.androidfilemanager.core.domain.ViewerType
-import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
 import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
-import com.ryo.androidfilemanager.data.smb.SmbConnectionStore
 import com.ryo.androidfilemanager.data.source.SmbFileSource
 import com.ryo.androidfilemanager.core.domain.detectViewerType
 import com.ryo.androidfilemanager.data.thumbnail.SmbThumbnailRepository
@@ -74,8 +69,8 @@ data class SmbExplorerUiState(
 
 class SmbExplorerViewModel(
     private val appContext: Context,
-    private val smbClient: SmbClient = DefaultSmbClient(),
-    private val connectionStore: SmbConnectionRepository = SmbConnectionStore(appContext),
+    private val smbClient: SmbClient,
+    private val connectionStore: SmbConnectionRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SmbExplorerUiState())
     val uiState: StateFlow<SmbExplorerUiState> = _uiState.asStateFlow()
@@ -499,12 +494,6 @@ class SmbExplorerViewModel(
     }
 
     companion object {
-        fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                SmbExplorerViewModel(context.applicationContext)
-            }
-        }
-
         private const val SMB_PDF_PREFETCH_LIMIT = 12
         private const val PROGRESS_EMIT_INTERVAL_MS = 100L
     }

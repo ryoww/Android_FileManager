@@ -27,6 +27,7 @@ import com.ryo.androidfilemanager.data.cache.formatCacheSize
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.ui.components.ScreenTitle
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 private data class CacheSizeState(
     val total: Long = 0L,
@@ -41,9 +42,7 @@ fun SettingsScreen(
     val currentContext = LocalContext.current
     val context = currentContext.applicationContext
     val lifecycleOwner = LocalLifecycleOwner.current
-    val cacheRepository = remember(context) {
-        FileCacheRepository(context)
-    }
+    val cacheRepository: FileCacheRepository = koinInject()
     val scope = rememberCoroutineScope()
     var cacheSizes by remember { mutableStateOf(CacheSizeState()) }
     var hasFullStorageAccess by remember { mutableStateOf(FileManagerAccess.hasAllFilesAccess()) }

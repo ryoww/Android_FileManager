@@ -22,11 +22,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.content.res.Configuration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.FileSortOption
 import com.ryo.androidfilemanager.core.domain.sortedForDisplay
@@ -38,16 +36,14 @@ import com.ryo.androidfilemanager.ui.components.NavigateUpAction
 import com.ryo.androidfilemanager.ui.components.ScreenTitle
 import com.ryo.androidfilemanager.ui.components.TransferProgressBar
 import com.ryo.androidfilemanager.explorer.FileCollection
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun SmbConnectionScreen(
     onOpenFile: (OpenedFile) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current.applicationContext
-    val viewModel: SmbExplorerViewModel = viewModel(
-        factory = SmbExplorerViewModel.factory(context),
-    )
+    val viewModel: SmbExplorerViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val uploadPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),

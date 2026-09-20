@@ -38,7 +38,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.OpenedFile
@@ -48,6 +47,7 @@ import com.ryo.androidfilemanager.ui.components.BrowserHeader
 import com.ryo.androidfilemanager.ui.components.BrowserMessage
 import com.ryo.androidfilemanager.ui.components.BrowserProgressIndicator
 import com.ryo.androidfilemanager.ui.components.NavigateUpAction
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun ExplorerScreen(
@@ -57,9 +57,7 @@ fun ExplorerScreen(
     val currentContext = LocalContext.current
     val context = currentContext.applicationContext
     val lifecycleOwner = LocalLifecycleOwner.current
-    val viewModel: ExplorerViewModel = viewModel(
-        factory = ExplorerViewModel.factory(context),
-    )
+    val viewModel: ExplorerViewModel = koinViewModel()
     val folderPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
