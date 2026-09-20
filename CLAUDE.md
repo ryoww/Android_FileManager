@@ -20,7 +20,7 @@ JDK 17 / compileSdk 36 / minSdk 26 / AGP 9.2.1。2 モジュール構成: `:core
 
 # 単一テストクラスの実行
 .\gradlew.bat :core:test --tests "com.ryo.androidfilemanager.core.domain.ViewerTypeDetectorTest"
-.\gradlew.bat testDebugUnitTest --tests "com.ryo.androidfilemanager.explorer.ScrollbarMathTest"
+.\gradlew.bat testDebugUnitTest --tests "com.ryo.androidfilemanager.ui.components.ScrollbarMathTest"
 
 # 端末へインストール
 .\gradlew.bat installDebug

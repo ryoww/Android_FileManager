@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -56,6 +57,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.ui.components.ScrollbarMetrics
+import com.ryo.androidfilemanager.ui.components.VerticalScrollbar
+import com.ryo.androidfilemanager.ui.components.pixelScrollbarMetrics
+import com.ryo.androidfilemanager.ui.components.pixelScrollbarTargetOffset
 import kotlin.math.roundToInt
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -64,6 +69,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.launch
 
 @Composable
 fun PdfViewerScreen(
@@ -117,6 +123,8 @@ private fun PdfReadyContent(
     val listState = rememberLazyListState()
     val horizontalScrollState = rememberScrollState()
     var scale by rememberSaveable { mutableFloatStateOf(PDF_MIN_SCALE) }
+    val scrollScope = rememberCoroutineScope()
+    var isScrollbarDragging by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         modifier = modifier
@@ -177,14 +185,85 @@ private fun PdfReadyContent(
             }
         }
 
+        // horizontalScroll の Box の外側に置くことで、横スクロールしても
+        // 常に画面右端に固定されるようにする（ズームで横に広がったコンテンツと一緒に動かない）
+        val scrollbarMetrics by remember(listState) {
+            derivedStateOf { listState.pixelScrollbarMetricsOrNull() }
+        }
+        VerticalScrollbar(
+            metrics = scrollbarMetrics,
+            onDragFraction = { fraction ->
+                val layoutInfo = listState.layoutInfo
+                val visibleItems = layoutInfo.visibleItemsInfo
+                val firstVisible = visibleItems.firstOrNull()
+                if (firstVisible == null) return@VerticalScrollbar
+                val averageItemHeightPx = visibleItems.map { it.size }.average().toFloat()
+                val itemSpacingPx = layoutInfo.mainAxisItemSpacing.toFloat()
+                val itemCount = layoutInfo.totalItemsCount
+
+                val estimated = estimateListScroll(
+                    firstVisibleIndex = firstVisible.index,
+                    firstVisibleScrollOffsetPx = listState.firstVisibleItemScrollOffset,
+                    averageItemHeightPx = averageItemHeightPx,
+                    itemSpacingPx = itemSpacingPx,
+                    itemCount = itemCount,
+                    contentPaddingPx = layoutInfo.beforeContentPadding.toFloat(),
+                )
+                val targetOffsetPx = pixelScrollbarTargetOffset(
+                    positionFraction = fraction,
+                    contentHeightPx = estimated.contentHeightPx,
+                    viewportHeightPx = layoutInfo.viewportSize.height.toFloat(),
+                )
+                val target = listScrollTargetForOffset(
+                    offsetPx = targetOffsetPx,
+                    averageItemHeightPx = averageItemHeightPx,
+                    itemSpacingPx = itemSpacingPx,
+                    itemCount = itemCount,
+                )
+                scrollScope.launch {
+                    listState.scrollToItem(target.index, target.scrollOffsetPx)
+                }
+            },
+            onDraggingChange = { dragging -> isScrollbarDragging = dragging },
+            autoHide = true,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
+
         PdfPageIndicatorPill(
             listState = listState,
             pageCount = renderer.pageCount,
+            isScrollbarDragging = isScrollbarDragging,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(12.dp),
         )
     }
+}
+
+/**
+ * [estimateListScroll] を使って現在のスクロール位置・コンテンツ高さを推定し、
+ * [pixelScrollbarMetrics] に変換する。ページ高さの推定方式は estimateListScroll の
+ * KDoc（Why not）を参照。
+ */
+private fun LazyListState.pixelScrollbarMetricsOrNull(): ScrollbarMetrics? {
+    val visibleItems = layoutInfo.visibleItemsInfo
+    val firstVisible = visibleItems.firstOrNull() ?: return null
+    val averageItemHeightPx = visibleItems.map { it.size }.average().toFloat()
+
+    val estimated = estimateListScroll(
+        firstVisibleIndex = firstVisible.index,
+        firstVisibleScrollOffsetPx = firstVisibleItemScrollOffset,
+        averageItemHeightPx = averageItemHeightPx,
+        itemSpacingPx = layoutInfo.mainAxisItemSpacing.toFloat(),
+        itemCount = layoutInfo.totalItemsCount,
+        contentPaddingPx = layoutInfo.beforeContentPadding.toFloat(),
+    )
+
+    return pixelScrollbarMetrics(
+        scrollOffsetPx = estimated.offsetPx,
+        contentHeightPx = estimated.contentHeightPx,
+        viewportHeightPx = layoutInfo.viewportSize.height.toFloat(),
+    )
 }
 
 @Composable
@@ -242,6 +321,7 @@ private fun PdfPageItem(
 private fun PdfPageIndicatorPill(
     listState: LazyListState,
     pageCount: Int,
+    isScrollbarDragging: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val currentPageIndex by remember(pageCount) {
@@ -256,8 +336,10 @@ private fun PdfPageIndicatorPill(
     }
     var pillVisible by remember { mutableStateOf(true) }
 
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) {
+    // スクロールバーのドラッグ中もページ番号が分かるようにする（isScrollInProgress は
+    // scrollToItem によるジャンプ中しか true にならず、ドラッグ操作自体では立たない）
+    LaunchedEffect(listState.isScrollInProgress, isScrollbarDragging) {
+        if (listState.isScrollInProgress || isScrollbarDragging) {
             pillVisible = true
         } else {
             pillVisible = true

@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.explorer
+package com.ryo.androidfilemanager.ui.components
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -131,5 +131,88 @@ class ScrollbarMathTest {
             0f,
             scrollbarDragFraction(touchY = 50f, trackHeight = 100f, thumbHeight = 150f),
         )
+    }
+
+    @Test
+    fun pixelMetrics_whenContentFitsInViewport_returnsNull() {
+        assertEquals(
+            null,
+            pixelScrollbarMetrics(scrollOffsetPx = 0f, contentHeightPx = 1000f, viewportHeightPx = 2000f),
+        )
+        // ちょうど収まる場合（等しい）もスクロールバー不要
+        assertEquals(
+            null,
+            pixelScrollbarMetrics(scrollOffsetPx = 0f, contentHeightPx = 1000f, viewportHeightPx = 1000f),
+        )
+    }
+
+    @Test
+    fun pixelMetrics_atTopAndBottom_hasPositionZeroAndOne() {
+        val contentHeightPx = 5000f
+        val viewportHeightPx = 1000f
+
+        val atTop = pixelScrollbarMetrics(
+            scrollOffsetPx = 0f,
+            contentHeightPx = contentHeightPx,
+            viewportHeightPx = viewportHeightPx,
+        )
+        assertEquals(0f, atTop!!.positionFraction, 0.0001f)
+
+        val atBottom = pixelScrollbarMetrics(
+            scrollOffsetPx = contentHeightPx - viewportHeightPx,
+            contentHeightPx = contentHeightPx,
+            viewportHeightPx = viewportHeightPx,
+        )
+        assertEquals(1f, atBottom!!.positionFraction, 0.0001f)
+    }
+
+    @Test
+    fun pixelMetrics_thumbHeightFraction_isClampedToMinimum() {
+        val metrics = pixelScrollbarMetrics(
+            scrollOffsetPx = 0f,
+            contentHeightPx = 100000f,
+            viewportHeightPx = 1000f,
+        )
+
+        assertEquals(0.08f, metrics!!.thumbHeightFraction, 0.0001f)
+    }
+
+    @Test
+    fun pixelTargetOffset_isProportionalToFractionAndClampsOutOfRangeFractions() {
+        val contentHeightPx = 5000f
+        val viewportHeightPx = 1000f
+        val maxOffsetPx = contentHeightPx - viewportHeightPx
+
+        assertEquals(
+            0f,
+            pixelScrollbarTargetOffset(-1f, contentHeightPx, viewportHeightPx),
+            0.0001f,
+        )
+        assertEquals(
+            maxOffsetPx,
+            pixelScrollbarTargetOffset(2f, contentHeightPx, viewportHeightPx),
+            0.0001f,
+        )
+        assertEquals(
+            maxOffsetPx / 2f,
+            pixelScrollbarTargetOffset(0.5f, contentHeightPx, viewportHeightPx),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun pixelMetricsAndTargetOffset_roundTripConsistently() {
+        val contentHeightPx = 8000f
+        val viewportHeightPx = 1200f
+        val offsetPx = 1234f
+
+        val metrics = pixelScrollbarMetrics(offsetPx, contentHeightPx, viewportHeightPx)
+        val roundTrippedOffsetPx = pixelScrollbarTargetOffset(
+            metrics!!.positionFraction,
+            contentHeightPx,
+            viewportHeightPx,
+        )
+
+        assertEquals(offsetPx, roundTrippedOffsetPx, 0.5f)
     }
 }

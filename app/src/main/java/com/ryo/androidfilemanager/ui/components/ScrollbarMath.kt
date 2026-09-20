@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.explorer
+package com.ryo.androidfilemanager.ui.components
 
 import kotlin.math.round
 
@@ -66,4 +66,41 @@ internal fun scrollbarDragFraction(
 
     val fraction = (touchY - thumbHeight / 2f) / travel
     return fraction.coerceIn(0f, 1f)
+}
+
+/**
+ * ピクセル基準（スクロールオフセット・コンテンツ高さ）でのスクロールバー指標。
+ * PDF ビューワーのように「アイテム数」ではなく実測ピクセルでスクロール量を扱う画面向け。
+ * コンテンツがビューポートに収まる場合はスクロールバー自体が不要なので null を返す。
+ */
+internal fun pixelScrollbarMetrics(
+    scrollOffsetPx: Float,
+    contentHeightPx: Float,
+    viewportHeightPx: Float,
+): ScrollbarMetrics? {
+    if (contentHeightPx <= viewportHeightPx) {
+        return null
+    }
+
+    val thumbHeightFraction = (viewportHeightPx / contentHeightPx).coerceIn(0.08f, 1f)
+    val maxScrollOffsetPx = contentHeightPx - viewportHeightPx
+    val positionFraction = (scrollOffsetPx / maxScrollOffsetPx).coerceIn(0f, 1f)
+
+    return ScrollbarMetrics(
+        positionFraction = positionFraction,
+        thumbHeightFraction = thumbHeightFraction,
+    )
+}
+
+/**
+ * ドラッグ位置（0f..1f）から、実測ピクセルでのスクロールオフセットを算出する。
+ * [pixelScrollbarMetrics] の positionFraction と往復整合する。
+ */
+internal fun pixelScrollbarTargetOffset(
+    positionFraction: Float,
+    contentHeightPx: Float,
+    viewportHeightPx: Float,
+): Float {
+    val maxScrollOffsetPx = (contentHeightPx - viewportHeightPx).coerceAtLeast(0f)
+    return positionFraction.coerceIn(0f, 1f) * maxScrollOffsetPx
 }

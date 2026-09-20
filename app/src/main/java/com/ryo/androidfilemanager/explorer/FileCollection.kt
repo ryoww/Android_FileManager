@@ -1,16 +1,10 @@
 package com.ryo.androidfilemanager.explorer
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -27,21 +21,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
+import com.ryo.androidfilemanager.ui.components.ScrollbarMetrics
+import com.ryo.androidfilemanager.ui.components.VerticalScrollbar
+import com.ryo.androidfilemanager.ui.components.scrollbarMetrics
+import com.ryo.androidfilemanager.ui.components.scrollbarTargetIndex
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -222,6 +213,11 @@ private fun RefreshableContainer(
     )
 }
 
+/**
+ * [VerticalScrollbar] の薄いラッパー。エクスプローラー一覧は「何番目のアイテムまで
+ * スクロールするか」で扱うため、共通コンポーネントが返す 0f..1f の割合を index に変換する。
+ * 一覧は従来通り常時表示のため autoHide は使わない。
+ */
 @Composable
 private fun FileScrollIndicator(
     metrics: ScrollbarMetrics?,
@@ -230,98 +226,20 @@ private fun FileScrollIndicator(
     onScrollToIndex: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val currentMetrics = metrics ?: return
-    // ドラッグ中のスクロールで metrics が変わるたびに pointerInput が再起動すると
-    // ジェスチャが中断されるため、キーは固定し最新値は State 経由で読む
-    val latestMetrics = rememberUpdatedState(currentMetrics)
-    val latestTotalItemCount = rememberUpdatedState(totalItemCount)
-    val latestVisibleItemCount = rememberUpdatedState(visibleItemCount)
-    val latestOnScrollToIndex = rememberUpdatedState(onScrollToIndex)
-    Canvas(
-        modifier = modifier
-            .fillMaxHeight()
-            .width(24.dp)
-            .padding(top = 6.dp, bottom = 6.dp, end = 2.dp)
-            .pointerInput(Unit) {
-                detectScrollbarDrag(
-                    metrics = { latestMetrics.value },
-                    totalItemCount = { latestTotalItemCount.value },
-                    visibleItemCount = { latestVisibleItemCount.value },
-                    onScrollToIndex = { index -> latestOnScrollToIndex.value(index) },
-                )
-            },
-    ) {
-        val trackWidth = 2.dp.toPx()
-        val thumbWidth = 3.dp.toPx()
-        val thumbHeight = (size.height * currentMetrics.thumbHeightFraction)
-            .coerceAtLeast(28.dp.toPx())
-            .coerceAtMost(size.height)
-        val thumbTop = (size.height - thumbHeight) * currentMetrics.positionFraction
-        val trackLeft = (size.width - trackWidth) / 2f
-        val thumbLeft = (size.width - thumbWidth) / 2f
-
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.10f),
-            topLeft = Offset(trackLeft, 0f),
-            size = Size(trackWidth, size.height),
-            cornerRadius = CornerRadius(trackWidth / 2f, trackWidth / 2f),
-        )
-        drawRoundRect(
-            color = Color(0xFF74D0FF).copy(alpha = 0.78f),
-            topLeft = Offset(thumbLeft, thumbTop),
-            size = Size(thumbWidth, thumbHeight),
-            cornerRadius = CornerRadius(thumbWidth / 2f, thumbWidth / 2f),
-        )
-    }
-}
-
-private suspend fun PointerInputScope.detectScrollbarDrag(
-    metrics: () -> ScrollbarMetrics,
-    totalItemCount: () -> Int,
-    visibleItemCount: () -> Int,
-    onScrollToIndex: (Int) -> Unit,
-) {
-    awaitEachGesture {
-        val down = awaitFirstDown()
-        // consume しないと下の LazyGrid/LazyColumn も同じドラッグでスクロールを
-        // 始めてしまい、スクロールバー操作と二重に動く
-        down.consume()
-        fun scrollToTouch(touchY: Float) {
-            val total = totalItemCount()
-            val visible = visibleItemCount()
-            if (total <= 0 || visible <= 0) {
-                return
-            }
-            val thumbHeight = (size.height * metrics().thumbHeightFraction)
-                .coerceAtLeast(28.dp.toPx())
-                .coerceAtMost(size.height.toFloat())
-            val fraction = scrollbarDragFraction(
-                touchY = touchY,
-                trackHeight = size.height.toFloat(),
-                thumbHeight = thumbHeight,
-            )
+    VerticalScrollbar(
+        metrics = metrics,
+        onDragFraction = { fraction ->
             onScrollToIndex(
                 scrollbarTargetIndex(
                     positionFraction = fraction,
-                    totalItemCount = total,
-                    visibleItemCount = visible,
+                    totalItemCount = totalItemCount,
+                    visibleItemCount = visibleItemCount,
                 ),
             )
-        }
-
-        scrollToTouch(down.position.y)
-
-        val pointerId = down.id
-        while (true) {
-            val event = awaitPointerEvent()
-            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
-            if (!change.pressed) {
-                break
-            }
-            change.consume()
-            scrollToTouch(change.position.y)
-        }
-    }
+        },
+        modifier = modifier,
+        autoHide = false,
+    )
 }
 
 private fun LazyListState.scrollbarMetrics(): ScrollbarMetrics? {
