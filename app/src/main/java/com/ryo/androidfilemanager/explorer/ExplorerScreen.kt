@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,8 +22,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.content.res.Configuration
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -125,6 +128,8 @@ fun ExplorerScreenContent(
         onNavigateUp()
     }
 
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -139,29 +144,54 @@ fun ExplorerScreenContent(
             }
         } ?: "Choose a local folder with Android SAF"
 
-        BrowserHeader(
-            title = uiState.rootName ?: "Explorer",
-            subtitle = storageLabel,
-            navigateUp = if (uiState.canNavigateUp) {
-                NavigateUpAction(
-                    label = uiState.navigateUpLabel,
-                    contentDescription = "Back to ${uiState.navigateUpLabel}",
-                    onClick = onNavigateUp,
-                )
-            } else {
-                null
-            },
-        )
+        val header = @Composable { headerModifier: Modifier ->
+            BrowserHeader(
+                title = uiState.rootName ?: "Explorer",
+                subtitle = storageLabel,
+                titleStyle = if (isLandscape) {
+                    MaterialTheme.typography.titleMedium
+                } else {
+                    MaterialTheme.typography.headlineSmall
+                },
+                navigateUp = if (uiState.canNavigateUp) {
+                    NavigateUpAction(
+                        label = uiState.navigateUpLabel,
+                        contentDescription = "Back to ${uiState.navigateUpLabel}",
+                        onClick = onNavigateUp,
+                    )
+                } else {
+                    null
+                },
+                modifier = headerModifier,
+            )
+        }
 
-        ExplorerToolbar(
-            gridMode = gridMode,
-            onGridModeChange = { gridMode = it },
-            selectedFilter = selectedFilter,
-            onFilterSelected = { selectedFilterName = it.name },
-            selectedSort = selectedSort,
-            onSortSelected = { selectedSortName = it.name },
-            onReload = onReload,
-        )
+        val toolbar = @Composable { toolbarModifier: Modifier ->
+            ExplorerToolbar(
+                gridMode = gridMode,
+                onGridModeChange = { gridMode = it },
+                selectedFilter = selectedFilter,
+                onFilterSelected = { selectedFilterName = it.name },
+                selectedSort = selectedSort,
+                onSortSelected = { selectedSortName = it.name },
+                onReload = onReload,
+                modifier = toolbarModifier,
+            )
+        }
+
+        if (isLandscape) {
+            // 横向きは高さが限られるため、ヘッダーとツールバーを1行にまとめて縦の占有を減らす
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                header(Modifier.weight(1f))
+                toolbar(Modifier)
+            }
+        } else {
+            header(Modifier)
+            toolbar(Modifier.fillMaxWidth())
+        }
 
         BrowserProgressIndicator(visible = uiState.isLoading)
 

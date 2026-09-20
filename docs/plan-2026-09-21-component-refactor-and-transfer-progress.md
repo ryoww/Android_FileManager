@@ -109,3 +109,36 @@ SmbFileSource.open / downloadToDownloads / uploadFromUris
 - `assembleDebug` / `testDebugUnitTest`（`PdfZoomMathTest` 9 件を追加）: BUILD SUCCESSFUL
 - エミュレータで生成したサンプル（6 ページ PDF、40 秒の動画、30 秒の音声）を開き、PDF の連続表示・ページピル・ダブルタップ拡大、動画の再生・+10s・コントローラ切替、音声のフル構成コントロールを目視確認
 - 未確認: ピンチ操作（2 本指）、回転後の再生位置復元、バックグラウンド一時停止、SMB ストリーミング動画でのエラーカード表示
+
+---
+
+## 追記: 横向き（ランドスケープ）対応（2026-09-21）
+
+ユーザー依頼「スマホを横にしたときの動作も考慮してください」への対応。
+
+### 問題
+
+- `AppNavHost` の `openedFile` / `rootSection` / `viewerFullScreen` が `remember` だったため、回転で Activity が再生成されると開いていたファイルもタブも消えて Explorer に戻っていた。SMB ストリーム再生中は接続ごと失われる
+- 横向きは高さが 400dp 程度しかないのに、下タブ + ヘッダー + ツールバーが縦に積まれて一覧がほとんど見えない
+- SMB の接続フォームはスクロールできず、横向きでは Connect ボタンに届かない
+
+### 対応
+
+| 項目 | 内容 | ファイル |
+|---|---|---|
+| Activity を作り直さない | `configChanges="orientation\|screenSize\|screenLayout\|smallestScreenSize\|keyboardHidden"` を追加。Compose は `LocalConfiguration` で追従する | `AndroidManifest.xml` |
+| 状態の保存 | `rootSection` / `viewerFullScreen` / `suppressAutoFullScreen` を `rememberSaveable` 化。`OpenedFile.Local` は `OpenedFileSaver` で URI・種別・名前を保存（`Stream` は復元不能なので一覧に戻る） | `navigation/AppNavHost.kt`, `navigation/OpenedFileSaver.kt` |
+| 横向きのナビゲーション | 下タブの代わりに左の `NavigationRail`。項目定義は 1 箇所（`appNavItems`）に集約 | `navigation/AppNavHost.kt` |
+| 動画の全画面と向き | 横に倒すと自動で全画面、縦に戻すと解除。全画面ボタンで横向き固定、解除で戻す。横向きのまま手動解除したときは再突入しない（抑止フラグ）。判断は純関数 `VideoFullScreenPolicy` に分離しテスト（6 件） | `navigation/VideoFullScreenPolicy.kt` |
+| 一覧の横向きレイアウト | ヘッダーとツールバーを 1 行に並べ、タイトルを `titleMedium` に | `explorer/ExplorerScreen.kt`, `smb/SmbConnectionScreen.kt` |
+| SMB フォーム | フォーム表示中（未接続 or 編集中）はフォームだけをスクロール領域に出し、一覧は隠す | `smb/SmbConnectionScreen.kt` |
+
+### レビューで直した欠陥
+
+Worker 版は横向きと縦向きで `Scaffold` を別々に組んでいたため、回転のたびにビューワーのサブツリーがコンポジション上の別の位置へ移って破棄・再生成され、動画がリスタートしていた（SMB ストリームなら接続が閉じる）。1 つの `Scaffold` の中で「レールを出すか / 下タブを出すか」だけを切り替える形に統合し、回転をまたいで再生が継続することを確認した（4.5 秒 → 横 8.9 秒 → 縦 13.5 秒）。
+
+### 検証
+
+- `assembleDebug` / `testDebugUnitTest`: BUILD SUCCESSFUL
+- エミュレータ（`user_rotation` で強制回転）: 横向きの一覧（レール + 1 行ヘッダー）、SMB フォームのスクロール、動画の自動全画面と縦への復帰、横向きでの手動解除、回転をまたいだ再生継続を目視確認
+- 未確認: 実機の加速度センサーでの回転、PDF / 画像を開いたままの回転（仕組みは動画と同じ）、プロセス再生成後の `OpenedFileSaver` 復元

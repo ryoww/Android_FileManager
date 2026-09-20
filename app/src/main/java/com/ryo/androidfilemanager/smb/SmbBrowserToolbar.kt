@@ -42,6 +42,7 @@ internal fun SmbBrowserToolbar(
     onUpload: () -> Unit,
     onDownloadSelected: () -> Unit,
     onClearSelection: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     if (selectedCount > 0) {
         SelectedFilesToolbar(
@@ -54,7 +55,7 @@ internal fun SmbBrowserToolbar(
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

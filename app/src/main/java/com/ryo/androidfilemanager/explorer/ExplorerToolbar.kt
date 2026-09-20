@@ -26,10 +26,10 @@ internal fun ExplorerToolbar(
     selectedSort: FileSortOption,
     onSortSelected: (FileSortOption) -> Unit,
     onReload: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
