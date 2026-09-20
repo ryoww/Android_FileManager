@@ -158,7 +158,6 @@ fun ExplorerScreenContent(
                 },
                 navigateUp = if (uiState.canNavigateUp) {
                     NavigateUpAction(
-                        label = uiState.navigateUpLabel,
                         contentDescription = "Back to ${uiState.navigateUpLabel}",
                         onClick = onNavigateUp,
                     )

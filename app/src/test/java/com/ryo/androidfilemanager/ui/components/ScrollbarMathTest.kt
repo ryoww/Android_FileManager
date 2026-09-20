@@ -201,6 +201,31 @@ class ScrollbarMathTest {
     }
 
     @Test
+    fun thumbBounds_belowMinimumHeight_isLiftedToMinThumbHeight() {
+        // trackHeight 1000, thumbHeightFraction 0.01 (=10px) は minThumbHeightPx=28 を下回るため
+        // 実際のサム高さは 28px に持ち上がる
+        val bounds = scrollbarThumbBounds(
+            trackHeightPx = 1000f,
+            metrics = ScrollbarMetrics(positionFraction = 0f, thumbHeightFraction = 0.01f),
+            minThumbHeightPx = 28f,
+        )
+
+        assertEquals(28f, bounds.endInclusive - bounds.start, 0.0001f)
+    }
+
+    @Test
+    fun thumbBounds_atPositionOne_bottomReachesTrackHeight() {
+        val trackHeightPx = 1000f
+        val bounds = scrollbarThumbBounds(
+            trackHeightPx = trackHeightPx,
+            metrics = ScrollbarMetrics(positionFraction = 1f, thumbHeightFraction = 0.2f),
+            minThumbHeightPx = 28f,
+        )
+
+        assertEquals(trackHeightPx, bounds.endInclusive, 0.0001f)
+    }
+
+    @Test
     fun pixelMetricsAndTargetOffset_roundTripConsistently() {
         val contentHeightPx = 8000f
         val viewportHeightPx = 1200f

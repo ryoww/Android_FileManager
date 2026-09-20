@@ -1,34 +1,46 @@
 package com.ryo.androidfilemanager.data.thumbnail
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
+import androidx.compose.material.icons.outlined.AudioFile
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Movie
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.ViewerType
 import com.ryo.androidfilemanager.core.domain.detectViewerType
 
+// label は一覧のグリッド表示で使っていた短縮ラベルだったが呼び出し元が無くなったため削除。
+// description は fileSubtitle（例:「PDF / 1.2 MB」）で表示に使うため残す
 data class IconDescriptor(
-    val label: String,
     val description: String,
+    val icon: ImageVector,
 )
 
 object IconResolver {
     fun resolve(file: FileItem): IconDescriptor {
         if (file.isDirectory) {
-            return IconDescriptor(label = "DIR", description = "Folder")
+            return IconDescriptor(description = "Folder", icon = Icons.Outlined.Folder)
         }
 
         val ext = file.name.substringAfterLast('.', "").lowercase()
         val codeLabel = codeExtensionLabels[ext]
         if (codeLabel != null) {
-            return IconDescriptor(label = codeLabel, description = "$codeLabel source")
+            return IconDescriptor(description = "$codeLabel source", icon = Icons.Outlined.Code)
         }
 
         return when (detectViewerType(file.name, file.mimeType)) {
-            ViewerType.Pdf -> IconDescriptor(label = "PDF", description = "PDF")
-            ViewerType.Image -> IconDescriptor(label = "IMG", description = "Image")
-            ViewerType.Video -> IconDescriptor(label = "VID", description = "Video")
-            ViewerType.Audio -> IconDescriptor(label = "AUD", description = "Audio")
-            ViewerType.Text -> IconDescriptor(label = "TXT", description = "Text")
-            ViewerType.Code -> IconDescriptor(label = "CODE", description = "Code")
-            ViewerType.Unsupported -> IconDescriptor(label = "FILE", description = "File")
+            ViewerType.Pdf -> IconDescriptor(description = "PDF", icon = Icons.Outlined.PictureAsPdf)
+            ViewerType.Image -> IconDescriptor(description = "Image", icon = Icons.Outlined.Image)
+            ViewerType.Video -> IconDescriptor(description = "Video", icon = Icons.Outlined.Movie)
+            ViewerType.Audio -> IconDescriptor(description = "Audio", icon = Icons.Outlined.AudioFile)
+            ViewerType.Text -> IconDescriptor(description = "Text", icon = Icons.Outlined.Description)
+            ViewerType.Code -> IconDescriptor(description = "Code", icon = Icons.Outlined.Code)
+            ViewerType.Unsupported -> IconDescriptor(description = "File", icon = Icons.AutoMirrored.Outlined.InsertDriveFile)
         }
     }
 
@@ -55,4 +67,3 @@ object IconResolver {
         "sh" to "SH",
     )
 }
-

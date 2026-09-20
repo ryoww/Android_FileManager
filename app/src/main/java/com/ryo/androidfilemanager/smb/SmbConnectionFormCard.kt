@@ -1,17 +1,12 @@
 package com.ryo.androidfilemanager.smb
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -38,42 +33,33 @@ internal fun SmbConnectionFormCard(
     onClearSaved: () -> Unit,
     onDone: () -> Unit,
 ) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = if (uiState.hasSavedConnection) "Saved connection" else "Connect to a share",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                if (uiState.connected) {
-                    OutlinedButton(onClick = onDone) {
-                        Text(text = "Done")
-                    }
+            Text(
+                text = if (uiState.hasSavedConnection) "Saved connection" else "Connect to a share",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (uiState.connected) {
+                OutlinedButton(onClick = onDone) {
+                    Text(text = "Done")
                 }
             }
-            ConnectionFields(
-                uiState = uiState,
-                onHostChange = onHostChange,
-                onPortChange = onPortChange,
-                onShareNameChange = onShareNameChange,
-                onUsernameChange = onUsernameChange,
-                onDomainChange = onDomainChange,
-                onPasswordChange = onPasswordChange,
-            )
         }
+        ConnectionFields(
+            uiState = uiState,
+            onHostChange = onHostChange,
+            onPortChange = onPortChange,
+            onShareNameChange = onShareNameChange,
+            onUsernameChange = onUsernameChange,
+            onDomainChange = onDomainChange,
+            onPasswordChange = onPasswordChange,
+        )
     }
 
     FlowRow(

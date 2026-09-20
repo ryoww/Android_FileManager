@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Button
@@ -172,8 +171,9 @@ private fun SeekHintOverlay(
                 if (hint.direction == SeekDirection.BACK) Alignment.CenterStart else Alignment.CenterEnd,
             ),
         ) {
+            // 動画上に重ねるヒントなので、スクリムの半透明はそのまま残す
             Surface(
-                shape = RoundedCornerShape(50),
+                shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f),
                 modifier = Modifier.padding(horizontal = 32.dp),
             ) {
@@ -195,8 +195,8 @@ internal fun PlaybackErrorCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier.padding(24.dp),
     ) {
         Column(

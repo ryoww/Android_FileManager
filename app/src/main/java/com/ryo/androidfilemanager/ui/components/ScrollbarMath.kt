@@ -69,6 +69,22 @@ internal fun scrollbarDragFraction(
 }
 
 /**
+ * サムの top..bottom（px）を算出する。Canvas の描画とドラッグ判定（可視/不可視の当たり判定）が
+ * 同じ式を使わないと、見た目のサム位置とタップ判定がずれるため共通化する。
+ */
+internal fun scrollbarThumbBounds(
+    trackHeightPx: Float,
+    metrics: ScrollbarMetrics,
+    minThumbHeightPx: Float,
+): ClosedFloatingPointRange<Float> {
+    val thumbHeight = (trackHeightPx * metrics.thumbHeightFraction)
+        .coerceAtLeast(minThumbHeightPx)
+        .coerceAtMost(trackHeightPx)
+    val thumbTop = (trackHeightPx - thumbHeight) * metrics.positionFraction
+    return thumbTop..(thumbTop + thumbHeight)
+}
+
+/**
  * ピクセル基準（スクロールオフセット・コンテンツ高さ）でのスクロールバー指標。
  * PDF ビューワーのように「アイテム数」ではなく実測ピクセルでスクロール量を扱う画面向け。
  * コンテンツがビューポートに収まる場合はスクロールバー自体が不要なので null を返す。

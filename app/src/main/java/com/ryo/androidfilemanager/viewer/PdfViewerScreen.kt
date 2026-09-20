@@ -129,7 +129,9 @@ private fun PdfReadyContent(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            // PDF ページは常に白いので、background だと同色になり境界が消えるライトテーマがある。
+            // 一段濃い surfaceContainerHighest でページとの境界を保つ
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     do {
@@ -226,6 +228,11 @@ private fun PdfReadyContent(
             },
             onDraggingChange = { dragging -> isScrollbarDragging = dragging },
             autoHide = true,
+            scrollInProgress = listState.isScrollInProgress,
+            // PDF の紙面はテーマに関係なく常に白いため、テーマ色（ダークテーマでは
+            // onSurfaceVariant がほぼ見えなくなる）ではなく紙面に対して常に見える固定色を使う。
+            // これは CLAUDE.md の「Color(0x...) 直書き禁止」の UI 規約の例外として明記する
+            thumbColor = Color.Black.copy(alpha = 0.45f),
             modifier = Modifier.align(Alignment.CenterEnd),
         )
 
@@ -350,8 +357,8 @@ private fun PdfPageIndicatorPill(
 
     AnimatedVisibility(visible = pillVisible, modifier = modifier) {
         Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f),
-            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.small,
         ) {
             Text(
                 text = "${currentPageIndex + 1} / $pageCount",

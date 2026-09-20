@@ -5,17 +5,17 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Description
@@ -25,14 +25,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,7 +45,6 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
@@ -71,34 +71,19 @@ private enum class RootSection {
 
 @Composable
 fun AndroidFileManagerApp() {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Color(0xFF3F8CFF),
-            onPrimary = Color.White,
-            primaryContainer = Color(0xFF173D72),
-            onPrimaryContainer = Color(0xFFE8F1FF),
-            secondary = Color(0xFF76D8FF),
-            background = Color(0xFF030B13),
-            surface = Color(0xFF071522),
-            surfaceContainerHighest = Color(0xB3122437),
-            onSurface = Color(0xFFF4F8FF),
-            onSurfaceVariant = Color(0xFFAAB8C8),
-            outline = Color(0xFF263B52),
-        ),
-    ) {
+    val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
+    // Android 12+ は端末の壁紙に合わせた Dynamic Color、それ未満は Material3 デフォルト配色を使う
+    val colorScheme = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isDark -> dynamicDarkColorScheme(context)
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
+        isDark -> darkColorScheme()
+        else -> lightColorScheme()
+    }
+    MaterialTheme(colorScheme = colorScheme) {
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF061725),
-                            Color(0xFF03101A),
-                            Color(0xFF020711),
-                        ),
-                    ),
-                ),
-            color = Color.Transparent,
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
             AppNavHost()
@@ -248,7 +233,6 @@ fun AppNavHost(
         modifier = modifier
             .fillMaxSize()
             .then(if (viewerFullScreen) Modifier else Modifier.safeDrawingPadding()),
-        containerColor = Color.Transparent,
         bottomBar = {
             if (!isLandscape && !viewerFullScreen) {
                 AppBottomNavigation(
@@ -334,11 +318,7 @@ private fun AppBottomNavigation(
     viewerSelected: Boolean,
     onRootSelected: (RootSection) -> Unit,
 ) {
-    NavigationBar(
-        containerColor = Color(0xF2051421),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 0.dp,
-    ) {
+    NavigationBar {
         appNavItems.forEach { item ->
             val isViewerItem = item.section == null
             NavigationBarItem(
@@ -347,7 +327,6 @@ private fun AppBottomNavigation(
                 enabled = if (isViewerItem) viewerSelected else true,
                 icon = { Icon(item.icon, contentDescription = null) },
                 label = { Text(text = item.label) },
-                colors = appNavItemColors(),
             )
         }
     }
@@ -360,8 +339,6 @@ private fun AppNavigationRail(
     onRootSelected: (RootSection) -> Unit,
 ) {
     NavigationRail(
-        containerColor = Color(0xF2051421),
-        contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.fillMaxHeight(),
     ) {
         appNavItems.forEach { item ->
@@ -372,26 +349,7 @@ private fun AppNavigationRail(
                 enabled = if (isViewerItem) viewerSelected else true,
                 icon = { Icon(item.icon, contentDescription = null) },
                 label = { Text(text = item.label) },
-                colors = appNavRailItemColors(),
             )
         }
     }
 }
-
-@Composable
-private fun appNavItemColors() = NavigationBarItemDefaults.colors(
-    selectedIconColor = MaterialTheme.colorScheme.primary,
-    selectedTextColor = MaterialTheme.colorScheme.secondary,
-    indicatorColor = Color(0x334B95FF),
-    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-)
-
-@Composable
-private fun appNavRailItemColors() = NavigationRailItemDefaults.colors(
-    selectedIconColor = MaterialTheme.colorScheme.primary,
-    selectedTextColor = MaterialTheme.colorScheme.secondary,
-    indicatorColor = Color(0x334B95FF),
-    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-)

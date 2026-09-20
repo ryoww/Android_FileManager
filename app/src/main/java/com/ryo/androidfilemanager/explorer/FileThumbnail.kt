@@ -3,12 +3,8 @@ package com.ryo.androidfilemanager.explorer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,12 +12,10 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.data.thumbnail.IconDescriptor
 import com.ryo.androidfilemanager.data.thumbnail.IconResolver
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailResult
@@ -59,15 +53,8 @@ fun FileThumbnail(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.surface,
-                    ),
-                ),
-            ),
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         when (val result = thumbnailResult) {
@@ -82,36 +69,18 @@ fun FileThumbnail(
                 },
             )
 
-            is ThumbnailResult.Icon -> ThumbnailIcon(
-                label = result.descriptor.label,
-                isDirectory = file.isDirectory,
-            )
-            is ThumbnailResult.Unavailable -> ThumbnailIcon(
-                label = IconResolver.resolve(file).label,
-                isDirectory = file.isDirectory,
-            )
+            is ThumbnailResult.Icon -> ThumbnailIcon(descriptor = result.descriptor)
+            is ThumbnailResult.Unavailable -> ThumbnailIcon(descriptor = IconResolver.resolve(file))
         }
     }
 }
 
 @Composable
-private fun ThumbnailIcon(
-    label: String,
-    isDirectory: Boolean,
-) {
-    if (isDirectory) {
-        Icon(
-            imageVector = Icons.Filled.Folder,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.fillMaxSize(0.52f),
-        )
-    } else {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            fontWeight = FontWeight.Bold,
-        )
-    }
+private fun ThumbnailIcon(descriptor: IconDescriptor) {
+    Icon(
+        imageVector = descriptor.icon,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxSize(0.45f),
+    )
 }

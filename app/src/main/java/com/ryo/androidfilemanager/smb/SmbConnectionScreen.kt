@@ -130,7 +130,6 @@ fun SmbConnectionScreen(
                     titleStyle = MaterialTheme.typography.titleMedium,
                     navigateUp = if (uiState.canNavigateUp) {
                         NavigateUpAction(
-                            label = "Back",
                             contentDescription = "Back to ${uiState.parentLabel()}",
                             onClick = viewModel::navigateUp,
                         )

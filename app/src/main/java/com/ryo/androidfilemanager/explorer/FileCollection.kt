@@ -108,6 +108,7 @@ internal fun FileCollection(
                 metrics = scrollbarMetrics,
                 totalItemCount = files.size,
                 visibleItemCount = visibleItemCount,
+                scrollInProgress = gridState.isScrollInProgress,
                 onScrollToIndex = { index ->
                     scrollScope.launch {
                         gridState.scrollToItem(index)
@@ -169,6 +170,7 @@ internal fun FileCollection(
                 metrics = scrollbarMetrics,
                 totalItemCount = files.size,
                 visibleItemCount = visibleItemCount,
+                scrollInProgress = listState.isScrollInProgress,
                 onScrollToIndex = { index ->
                     scrollScope.launch {
                         listState.scrollToItem(index)
@@ -216,13 +218,14 @@ private fun RefreshableContainer(
 /**
  * [VerticalScrollbar] の薄いラッパー。エクスプローラー一覧は「何番目のアイテムまで
  * スクロールするか」で扱うため、共通コンポーネントが返す 0f..1f の割合を index に変換する。
- * 一覧は従来通り常時表示のため autoHide は使わない。
+ * Android 標準のファストスクローラーと同じく、スクロール中とドラッグ中だけ表示する。
  */
 @Composable
 private fun FileScrollIndicator(
     metrics: ScrollbarMetrics?,
     totalItemCount: Int,
     visibleItemCount: Int,
+    scrollInProgress: Boolean,
     onScrollToIndex: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -238,7 +241,8 @@ private fun FileScrollIndicator(
             )
         },
         modifier = modifier,
-        autoHide = false,
+        autoHide = true,
+        scrollInProgress = scrollInProgress,
     )
 }
 

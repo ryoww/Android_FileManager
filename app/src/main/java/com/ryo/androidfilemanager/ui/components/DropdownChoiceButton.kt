@@ -1,8 +1,12 @@
 package com.ryo.androidfilemanager.ui.components
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -13,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Generic "label button that opens a dropdown of options" control, shared by
+ * Generic "chip that opens a dropdown of options" control, shared by
  * the filter and sort menus in the Explorer and SMB toolbars.
  */
 @Composable
@@ -29,11 +33,16 @@ internal fun <T> DropdownChoiceButton(
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        BrowseLabelButton(
-            label = optionLabel(selected),
-            icon = icon,
-            contentDescription = contentDescription,
+        AssistChip(
             onClick = { expanded = true },
+            label = { Text(optionLabel(selected)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    modifier = Modifier.size(AssistChipDefaults.IconSize),
+                )
+            },
         )
         DropdownMenu(
             expanded = expanded,

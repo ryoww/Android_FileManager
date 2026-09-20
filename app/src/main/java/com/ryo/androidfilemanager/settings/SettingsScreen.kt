@@ -87,15 +87,11 @@ fun SettingsScreen(
     ) {
         ScreenTitle(text = "Settings")
 
-        SectionLabel(text = "FILE MANAGER ACCESS")
+        SectionLabel(text = "File manager access")
         SettingsCard {
             SettingsActionRow(
                 title = "Full Storage Access",
-                value = if (hasFullStorageAccess) {
-                    "Enabled. Explorer can browse Download and internal storage directly."
-                } else {
-                    "Disabled. SAF cannot grant access to Download itself on Android 11+."
-                },
+                value = if (hasFullStorageAccess) "Enabled" else "Disabled",
                 actionLabel = if (hasFullStorageAccess) "Open Settings" else "Enable",
                 onClick = {
                     runCatching {
@@ -107,7 +103,7 @@ fun SettingsScreen(
             )
         }
 
-        SectionLabel(text = "CACHE MANAGEMENT")
+        SectionLabel(text = "Cache management")
         SettingsCard {
             SettingsActionRow(
                 title = "Total Cache",
@@ -148,7 +144,7 @@ fun SettingsScreen(
         }
 
         Text(
-            text = "Clearing cache removes temporary SMB files and generated thumbnails.",
+            text = "Removes temporary SMB files and generated thumbnails.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -161,17 +157,9 @@ fun SettingsScreen(
             )
         }
 
-        SectionLabel(text = "ABOUT")
+        SectionLabel(text = "About")
         SettingsCard {
-            Text(
-                text = "Version",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = "Android File Manager 0.1.0",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            SettingsInfoRow(title = "Version", value = "Android File Manager 0.1.0")
         }
     }
 }

@@ -2,7 +2,6 @@ package com.ryo.androidfilemanager.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FileUpload
@@ -36,7 +34,7 @@ import kotlin.math.roundToInt
 
 /**
  * SMB のダウンロード/アップロード進捗を、シークバー風のバーで表示する。
- * BrowserMessage と見た目のトーンを揃えている(角丸14dp・枠線・内側パディング)。
+ * BrowserMessage と見た目のトーンを揃えている(枠線なし・内側パディング)。
  */
 @Composable
 internal fun TransferProgressBar(
@@ -45,10 +43,9 @@ internal fun TransferProgressBar(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.62f),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.56f)),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
