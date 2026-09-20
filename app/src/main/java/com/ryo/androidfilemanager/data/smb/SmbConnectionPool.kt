@@ -1,5 +1,7 @@
 package com.ryo.androidfilemanager.data.smb
 
+import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
+
 import android.os.SystemClock
 import android.util.Log
 import com.hierynomus.smbj.SMBClient

@@ -29,8 +29,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.ryo.androidfilemanager.data.model.TransferKind
-import com.ryo.androidfilemanager.data.model.TransferProgress
+import com.ryo.androidfilemanager.core.domain.TransferKind
+import com.ryo.androidfilemanager.core.domain.TransferProgress
 import com.ryo.androidfilemanager.explorer.formatByteSize
 import kotlin.math.roundToInt
 

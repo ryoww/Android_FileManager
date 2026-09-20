@@ -1,7 +1,7 @@
 package com.ryo.androidfilemanager.data.thumbnail
 
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.SourceType
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.SourceType
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

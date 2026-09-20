@@ -1,5 +1,7 @@
 package com.ryo.androidfilemanager.data.smb
 
+import com.ryo.androidfilemanager.core.application.port.RemoteReadableFile
+
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.datasource.DataSpec

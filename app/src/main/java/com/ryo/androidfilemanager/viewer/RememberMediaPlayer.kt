@@ -20,7 +20,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
-import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.data.smb.SmbDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -36,7 +36,7 @@ internal data class PlaybackErrorInfo(val title: String, val detail: String)
 
 // OpenedFile ごとに再生位置を rememberSaveable で引くためのキー
 private fun OpenedFile.savedPositionKey(): String = when (this) {
-    is OpenedFile.Local -> uri.toString()
+    is OpenedFile.Local -> uri
     is OpenedFile.Stream -> "stream:${name}"
 }
 

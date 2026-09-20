@@ -1,6 +1,6 @@
 package com.ryo.androidfilemanager.data.thumbnail
 
-import com.ryo.androidfilemanager.data.model.FileItem
+import com.ryo.androidfilemanager.core.domain.FileItem
 
 sealed class ThumbnailResult {
     data class CachedFile(

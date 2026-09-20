@@ -11,11 +11,11 @@ import android.util.LruCache
 import com.ryo.androidfilemanager.data.smb.RemoteMediaDataSource
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
 import com.ryo.androidfilemanager.data.smb.SmbProxyFileDescriptors
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.SourceType
-import com.ryo.androidfilemanager.data.model.ViewerType
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.SourceType
+import com.ryo.androidfilemanager.core.domain.ViewerType
 import com.ryo.androidfilemanager.data.source.SmbFileSource
-import com.ryo.androidfilemanager.data.source.detectViewerType
+import com.ryo.androidfilemanager.core.domain.detectViewerType
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileOutputStream

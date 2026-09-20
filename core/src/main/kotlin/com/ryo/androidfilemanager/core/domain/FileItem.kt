@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.data.model
+package com.ryo.androidfilemanager.core.domain
 
 data class FileItem(
     val name: String,

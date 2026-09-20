@@ -1,6 +1,5 @@
-package com.ryo.androidfilemanager.data.source
+package com.ryo.androidfilemanager.core.domain
 
-import com.ryo.androidfilemanager.data.model.ViewerType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

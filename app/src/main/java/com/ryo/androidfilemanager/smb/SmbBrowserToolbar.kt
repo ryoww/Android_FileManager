@@ -24,7 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.ryo.androidfilemanager.explorer.FileSortOption
+import com.ryo.androidfilemanager.core.domain.FileSortOption
 import com.ryo.androidfilemanager.ui.components.BrowseIconButton
 import com.ryo.androidfilemanager.ui.components.DropdownChoiceButton
 import com.ryo.androidfilemanager.ui.components.FileDisplayModeToggle

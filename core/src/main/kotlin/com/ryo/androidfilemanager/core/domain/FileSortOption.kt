@@ -1,8 +1,7 @@
-package com.ryo.androidfilemanager.explorer
+package com.ryo.androidfilemanager.core.domain
 
-import com.ryo.androidfilemanager.data.model.FileItem
 
-internal enum class FileSortOption(
+enum class FileSortOption(
     val label: String,
 ) {
     NAME("Name"),
@@ -15,7 +14,7 @@ internal enum class FileSortOption(
     }
 }
 
-internal fun List<FileItem>.sortedForDisplay(sortOption: FileSortOption): List<FileItem> =
+fun List<FileItem>.sortedForDisplay(sortOption: FileSortOption): List<FileItem> =
     sortedWith(sortOption.comparator())
 
 private fun FileSortOption.comparator(): Comparator<FileItem> {

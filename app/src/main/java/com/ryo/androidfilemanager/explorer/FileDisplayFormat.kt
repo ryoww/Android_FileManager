@@ -1,6 +1,6 @@
 package com.ryo.androidfilemanager.explorer
 
-import com.ryo.androidfilemanager.data.model.FileItem
+import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.data.thumbnail.IconResolver
 import java.util.Locale
 

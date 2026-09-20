@@ -1,5 +1,9 @@
 package com.ryo.androidfilemanager.explorer
 
+import com.ryo.androidfilemanager.core.domain.FileFilter
+
+import com.ryo.androidfilemanager.core.domain.FileSortOption
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth

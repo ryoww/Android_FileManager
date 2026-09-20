@@ -23,8 +23,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.displayName
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.displayName
 
 /** Header shown above a viewer: back button, file name/type, and the enter-full-screen button. */
 @Composable

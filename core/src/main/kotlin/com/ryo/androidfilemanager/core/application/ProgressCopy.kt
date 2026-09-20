@@ -1,11 +1,11 @@
-package com.ryo.androidfilemanager.data.smb
+package com.ryo.androidfilemanager.core.application
 
 import java.io.OutputStream
 
-internal const val DEFAULT_TRANSFER_CHUNK_BYTES: Int = 256 * 1024
+const val DEFAULT_TRANSFER_CHUNK_BYTES: Int = 256 * 1024
 
 /** 位置指定読み取り。戻り値は読み取ったバイト数。EOF なら -1 または 0。 */
-internal fun interface PositionedReader {
+fun interface PositionedReader {
     fun read(position: Long, buffer: ByteArray, offset: Int, length: Int): Int
 }
 
@@ -14,7 +14,7 @@ internal fun interface PositionedReader {
  * SMBJ の File.read(byte[], long, int, int) をそのまま reader として渡せる形にすることで、
  * cacheSmallFile / downloadItem / uploadFromUris の進捗計測ロジックを一本化する。
  */
-internal fun copyWithProgress(
+fun copyWithProgress(
     reader: PositionedReader,
     output: OutputStream,
     totalBytes: Long?,

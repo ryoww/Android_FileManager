@@ -1,7 +1,7 @@
 package com.ryo.androidfilemanager.explorer
 
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.SourceType
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.SourceType
 
 internal fun dummyFileItems(): List<FileItem> = listOf(
     FileItem(

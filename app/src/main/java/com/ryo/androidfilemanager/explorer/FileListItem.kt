@@ -24,7 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.ryo.androidfilemanager.data.model.FileItem
+import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import androidx.compose.foundation.interaction.MutableInteractionSource
 

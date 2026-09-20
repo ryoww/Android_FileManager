@@ -54,8 +54,8 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.ViewerType
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.ViewerType
 import com.ryo.androidfilemanager.explorer.ExplorerScreen
 import com.ryo.androidfilemanager.settings.SettingsScreen
 import com.ryo.androidfilemanager.smb.SmbConnectionScreen

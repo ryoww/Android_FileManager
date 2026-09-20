@@ -12,17 +12,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.TransferProgress
-import com.ryo.androidfilemanager.data.model.ViewerType
-import com.ryo.androidfilemanager.data.model.withNameFallback
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.TransferProgress
+import com.ryo.androidfilemanager.core.domain.ViewerType
+import com.ryo.androidfilemanager.core.domain.withNameFallback
 import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
-import com.ryo.androidfilemanager.data.smb.SmbConnectionInfo
+import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
 import com.ryo.androidfilemanager.data.smb.SmbConnectionStore
 import com.ryo.androidfilemanager.data.source.SmbFileSource
-import com.ryo.androidfilemanager.data.source.detectViewerType
+import com.ryo.androidfilemanager.core.domain.detectViewerType
 import com.ryo.androidfilemanager.data.thumbnail.SmbThumbnailRepository
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import kotlinx.coroutines.Dispatchers
@@ -80,7 +80,8 @@ class SmbExplorerViewModel(
     // Mainへ寄せて反映する。完了フレームは間引かず必ず通す。
     private fun reportProgress(progress: TransferProgress) {
         val now = SystemClock.elapsedRealtime()
-        val isFinal = progress.totalBytes != null && progress.bytesTransferred >= progress.totalBytes
+        val totalBytes = progress.totalBytes
+        val isFinal = totalBytes != null && progress.bytesTransferred >= totalBytes
         if (!isFinal && now - lastProgressEmitAt < PROGRESS_EMIT_INTERVAL_MS) return
         lastProgressEmitAt = now
         viewModelScope.launch { uiState = uiState.copy(transferProgress = progress) }

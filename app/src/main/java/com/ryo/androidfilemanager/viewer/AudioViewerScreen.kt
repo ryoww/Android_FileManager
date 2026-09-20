@@ -27,8 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerControlView
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.displayName
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.displayName
 
 @OptIn(UnstableApi::class)
 @Composable

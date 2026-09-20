@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.data.smb
+package com.ryo.androidfilemanager.core.domain
 
 data class SmbConnectionInfo(
     val host: String,

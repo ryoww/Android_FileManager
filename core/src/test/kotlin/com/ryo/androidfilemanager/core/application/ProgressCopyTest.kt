@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.data.smb
+package com.ryo.androidfilemanager.core.application
 
 import java.io.ByteArrayOutputStream
 import kotlin.math.min

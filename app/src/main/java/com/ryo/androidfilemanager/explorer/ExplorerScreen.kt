@@ -1,5 +1,13 @@
 package com.ryo.androidfilemanager.explorer
 
+import com.ryo.androidfilemanager.core.domain.matchesFilter
+
+import com.ryo.androidfilemanager.core.domain.FileFilter
+
+import com.ryo.androidfilemanager.core.domain.sortedForDisplay
+
+import com.ryo.androidfilemanager.core.domain.FileSortOption
+
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,8 +39,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import com.ryo.androidfilemanager.ui.components.BrowserEmptyState
 import com.ryo.androidfilemanager.ui.components.BrowserHeader

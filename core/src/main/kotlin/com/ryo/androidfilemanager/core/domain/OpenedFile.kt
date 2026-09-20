@@ -1,14 +1,16 @@
-package com.ryo.androidfilemanager.data.model
+package com.ryo.androidfilemanager.core.domain
 
-import android.net.Uri
-import com.ryo.androidfilemanager.data.smb.RemoteReadableFile
+import com.ryo.androidfilemanager.core.application.port.FileSource
+
+import com.ryo.androidfilemanager.core.application.port.RemoteReadableFile
 
 sealed class OpenedFile {
     abstract val viewerType: ViewerType
     abstract val name: String?
 
     data class Local(
-        val uri: Uri,
+        // Android の Uri はアダプタ側の型なので、コアでは文字列で保持する
+        val uri: String,
         override val viewerType: ViewerType,
         override val name: String? = null,
     ) : OpenedFile()

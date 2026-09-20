@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.data.model
+package com.ryo.androidfilemanager.core.domain
 
 sealed class ViewerType(val displayName: String) {
     data object Pdf : ViewerType("PDF")

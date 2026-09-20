@@ -1,8 +1,8 @@
 package com.ryo.androidfilemanager.data.thumbnail
 
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.SourceType
-import com.ryo.androidfilemanager.data.model.ViewerType
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.SourceType
+import com.ryo.androidfilemanager.core.domain.ViewerType
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

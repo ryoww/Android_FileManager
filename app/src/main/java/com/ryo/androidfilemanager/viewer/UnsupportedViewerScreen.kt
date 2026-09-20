@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.core.domain.OpenedFile
 import java.io.File
 
 @Composable

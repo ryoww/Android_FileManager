@@ -1,10 +1,9 @@
 package com.ryo.androidfilemanager.navigation
 
-import android.net.Uri
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.ViewerType
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.ViewerType
 
 // OpenedFile.Stream は生きた SMB 接続を握っており復元できないため null として保存する
 // （プロセス再生成後は一覧に戻る）。Local はコンストラクタ引数を文字列 3 つに分解して保存する。
@@ -12,7 +11,7 @@ internal val OpenedFileSaver: Saver<OpenedFile?, Any> = listSaver(
     save = { value ->
         when (value) {
             is OpenedFile.Local -> listOf(
-                value.uri.toString(),
+                value.uri,
                 value.viewerType.displayName,
                 value.name,
             )
@@ -24,7 +23,7 @@ internal val OpenedFileSaver: Saver<OpenedFile?, Any> = listSaver(
         if (saved.size < 2) {
             null
         } else {
-            val uri = Uri.parse(saved[0] as String)
+            val uri = saved[0] as String
             val viewerType = viewerTypeFromDisplayName(saved[1] as String)
             val name = saved.getOrNull(2) as String?
             OpenedFile.Local(uri = uri, viewerType = viewerType, name = name)

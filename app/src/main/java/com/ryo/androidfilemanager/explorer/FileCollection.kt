@@ -40,7 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import com.ryo.androidfilemanager.data.model.FileItem
+import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest

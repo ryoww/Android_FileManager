@@ -1,6 +1,6 @@
 package com.ryo.androidfilemanager.data.thumbnail
 
-import com.ryo.androidfilemanager.data.model.FileItem
+import com.ryo.androidfilemanager.core.domain.FileItem
 import kotlinx.coroutines.flow.StateFlow
 
 interface ThumbnailRepository {

@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.data.model
+package com.ryo.androidfilemanager.core.domain
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

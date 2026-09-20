@@ -2,7 +2,7 @@ package com.ryo.androidfilemanager.viewer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.core.domain.OpenedFile
 
 @Composable
 fun CodeViewerScreen(

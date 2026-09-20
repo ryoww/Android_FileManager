@@ -1,5 +1,9 @@
 package com.ryo.androidfilemanager.data.source
 
+import com.ryo.androidfilemanager.core.application.port.FileSource
+
+import com.ryo.androidfilemanager.core.domain.detectViewerType
+
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
@@ -13,16 +17,16 @@ import com.hierynomus.mssmb2.SMB2CreateOptions
 import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.protocol.commons.EnumWithValue.EnumUtils
 import com.hierynomus.smbj.share.DiskShare
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.SourceType
-import com.ryo.androidfilemanager.data.model.TransferKind
-import com.ryo.androidfilemanager.data.model.TransferProgress
-import com.ryo.androidfilemanager.data.model.ViewerType
-import com.ryo.androidfilemanager.data.smb.SmbConnectionInfo
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.SourceType
+import com.ryo.androidfilemanager.core.domain.TransferKind
+import com.ryo.androidfilemanager.core.domain.TransferProgress
+import com.ryo.androidfilemanager.core.domain.ViewerType
+import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
 import com.ryo.androidfilemanager.data.smb.SmbReadableFile
-import com.ryo.androidfilemanager.data.smb.copyWithProgress
+import com.ryo.androidfilemanager.core.application.copyWithProgress
 import com.ryo.androidfilemanager.data.smb.newSmbClient
 import com.ryo.androidfilemanager.data.smb.toAuthenticationContext
 import java.io.File
@@ -105,7 +109,7 @@ class SmbFileSource(
         }
 
         return OpenedFile.Local(
-            uri = Uri.fromFile(cacheSmallFile(file, onProgress)),
+            uri = Uri.fromFile(cacheSmallFile(file, onProgress)).toString(),
             viewerType = viewerType,
         )
     }

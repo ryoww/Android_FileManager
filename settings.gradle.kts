@@ -16,4 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "AndroidFileManager"
 include(":app")
+include(":core")
 

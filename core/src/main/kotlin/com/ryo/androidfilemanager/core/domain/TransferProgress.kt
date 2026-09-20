@@ -1,4 +1,4 @@
-package com.ryo.androidfilemanager.data.model
+package com.ryo.androidfilemanager.core.domain
 
 enum class TransferKind { DOWNLOAD, UPLOAD }
 

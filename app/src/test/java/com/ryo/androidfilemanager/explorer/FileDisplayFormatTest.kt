@@ -1,7 +1,7 @@
 package com.ryo.androidfilemanager.explorer
 
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.SourceType
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.SourceType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

@@ -1,10 +1,7 @@
-package com.ryo.androidfilemanager.explorer
+package com.ryo.androidfilemanager.core.domain
 
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.ViewerType
-import com.ryo.androidfilemanager.data.source.detectViewerType
 
-internal enum class FileFilter(
+enum class FileFilter(
     val label: String,
 ) {
     ALL("All"),
@@ -14,7 +11,7 @@ internal enum class FileFilter(
     IMAGES("Images"),
 }
 
-internal fun FileItem.matchesFilter(filter: FileFilter): Boolean {
+fun FileItem.matchesFilter(filter: FileFilter): Boolean {
     if (isDirectory) {
         return filter == FileFilter.ALL
     }

@@ -35,7 +35,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
-import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.core.domain.OpenedFile
 import kotlinx.coroutines.delay
 
 // タップ範囲の判定に使う左右のしきい値（PlayerView.md の指示どおり左右 40% / 中央 20%）

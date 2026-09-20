@@ -1,11 +1,15 @@
 package com.ryo.androidfilemanager.data.source
 
+import com.ryo.androidfilemanager.core.application.port.FileSource
+
+import com.ryo.androidfilemanager.core.domain.detectViewerType
+
 import android.net.Uri
 import android.os.Environment
-import com.ryo.androidfilemanager.data.model.FileItem
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.SourceType
-import com.ryo.androidfilemanager.data.model.TransferProgress
+import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.SourceType
+import com.ryo.androidfilemanager.core.domain.TransferProgress
 import java.io.File
 import java.net.URLConnection
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +59,7 @@ class ExternalStorageFileSource(
         }
 
         return OpenedFile.Local(
-            uri = Uri.fromFile(localFile),
+            uri = Uri.fromFile(localFile).toString(),
             viewerType = detectViewerType(file.name, file.mimeType),
         )
     }

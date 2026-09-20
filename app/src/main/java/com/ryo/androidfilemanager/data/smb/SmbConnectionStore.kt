@@ -1,5 +1,7 @@
 package com.ryo.androidfilemanager.data.smb
 
+import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
+
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey

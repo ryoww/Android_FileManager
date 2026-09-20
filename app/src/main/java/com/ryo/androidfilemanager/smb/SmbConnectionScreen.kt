@@ -26,9 +26,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.content.res.Configuration
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.explorer.FileSortOption
-import com.ryo.androidfilemanager.explorer.sortedForDisplay
+import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.FileSortOption
+import com.ryo.androidfilemanager.core.domain.sortedForDisplay
 import com.ryo.androidfilemanager.ui.components.BrowserEmptyState
 import com.ryo.androidfilemanager.ui.components.BrowserHeader
 import com.ryo.androidfilemanager.ui.components.BrowserMessage
