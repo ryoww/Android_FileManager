@@ -5,6 +5,7 @@ import android.os.Environment
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.model.SourceType
+import com.ryo.androidfilemanager.data.model.TransferProgress
 import java.io.File
 import java.net.URLConnection
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,10 @@ class ExternalStorageFileSource(
             .map { child -> child.toFileItem() }
     }
 
-    override suspend fun open(file: FileItem): OpenedFile {
+    override suspend fun open(
+        file: FileItem,
+        onProgress: ((TransferProgress) -> Unit)?,
+    ): OpenedFile {
         require(!file.isDirectory) {
             "Directory cannot be opened as a file."
         }

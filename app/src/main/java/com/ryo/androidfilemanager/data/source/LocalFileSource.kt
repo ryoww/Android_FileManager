@@ -6,6 +6,7 @@ import androidx.documentfile.provider.DocumentFile
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.model.SourceType
+import com.ryo.androidfilemanager.data.model.TransferProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -57,7 +58,10 @@ class LocalFileSource(
             .map { child -> child.toFileItem() }
     }
 
-    override suspend fun open(file: FileItem): OpenedFile {
+    override suspend fun open(
+        file: FileItem,
+        onProgress: ((TransferProgress) -> Unit)?,
+    ): OpenedFile {
         val rawUri = file.uri ?: file.path
         require(rawUri.isNotBlank()) {
             "Local file URI is missing. Choose the folder again and reload the listing."

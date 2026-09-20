@@ -8,7 +8,6 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.LruCache
 import com.ryo.androidfilemanager.data.model.FileItem
@@ -258,7 +257,7 @@ class FileThumbnailRepository(
             } else {
                 retriever.setDataSource(appContext, uri)
             }
-            val bitmap = retriever.getThumbnailFrame()
+            val bitmap = VideoThumbnailGenerator.pickThumbnailFrame(retriever, MAX_THUMBNAIL_SIZE)
                 ?: return ThumbnailResult.Unavailable("Video frame could not be decoded.")
             bitmap.writeJpeg(cacheFile)
             bitmap.recycle()
@@ -367,46 +366,6 @@ class FileThumbnailRepository(
         } ?: return null
 
         return candidate.takeIf { it.isFile && it.canRead() }
-    }
-
-    private fun MediaMetadataRetriever.getThumbnailFrame(): Bitmap? {
-        val targetSize = videoTargetSize()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && targetSize != null) {
-            return getScaledFrameAtTime(
-                0,
-                MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                targetSize.first,
-                targetSize.second,
-            )
-        }
-
-        val sourceBitmap = getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-            ?: return null
-        val thumbnailBitmap = sourceBitmap.scaleToThumbnail()
-        if (thumbnailBitmap !== sourceBitmap) {
-            sourceBitmap.recycle()
-        }
-        return thumbnailBitmap
-    }
-
-    private fun MediaMetadataRetriever.videoTargetSize(): Pair<Int, Int>? {
-        val width = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
-            ?.toIntOrNull()
-            ?: return null
-        val height = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
-            ?.toIntOrNull()
-            ?: return null
-        val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-            ?.toIntOrNull()
-            ?: 0
-        val sourceWidth = if (rotation == 90 || rotation == 270) height else width
-        val sourceHeight = if (rotation == 90 || rotation == 270) width else height
-        val target = scaledSize(
-            width = sourceWidth,
-            height = sourceHeight,
-            maxSize = MAX_THUMBNAIL_SIZE,
-        )
-        return target.first.coerceAtLeast(1) to target.second.coerceAtLeast(1)
     }
 
     private fun Bitmap.scaleToThumbnail(): Bitmap {

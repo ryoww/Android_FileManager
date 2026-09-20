@@ -11,7 +11,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -34,20 +33,28 @@ fun FileThumbnail(
     modifier: Modifier = Modifier,
 ) {
     val initialIcon = ThumbnailResult.Icon(IconResolver.resolve(file))
-    val thumbnailVersion by thumbnailRepository.observeThumbnailVersion().collectAsState()
+    val contentAspectRatio = thumbnailContentAspectRatio(file)
 
     LaunchedEffect(file.path, file.size, file.modifiedAt, thumbnailRepository) {
         thumbnailRepository.requestThumbnail(file)
     }
 
+    // version はキーにせず内部で購読する。キーにすると更新通知のたびに
+    // produceState が再起動して表示がアイコンへ戻り、全アイテムの再構築が
+    // 走ってスクロール位置の暴走やちらつきの原因になる
     val thumbnailResult by produceState<ThumbnailResult>(
         initialIcon,
         file.path,
         file.size,
         file.modifiedAt,
-        thumbnailVersion,
+        thumbnailRepository,
     ) {
-        value = thumbnailRepository.getThumbnail(file)
+        thumbnailRepository.observeThumbnailVersion().collect {
+            val result = thumbnailRepository.getThumbnail(file)
+            if (result != value) {
+                value = result
+            }
+        }
     }
 
     Box(
@@ -68,7 +75,11 @@ fun FileThumbnail(
                 model = result.uri,
                 contentDescription = file.name,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
+                contentScale = if (contentAspectRatio != null) {
+                    ContentScale.Fit
+                } else {
+                    ContentScale.Crop
+                },
             )
 
             is ThumbnailResult.Icon -> ThumbnailIcon(

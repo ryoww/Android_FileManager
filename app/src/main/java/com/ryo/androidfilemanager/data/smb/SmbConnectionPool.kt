@@ -1,5 +1,7 @@
 package com.ryo.androidfilemanager.data.smb
 
+import android.os.SystemClock
+import android.util.Log
 import com.hierynomus.smbj.SMBClient
 import com.hierynomus.smbj.connection.Connection
 import com.hierynomus.smbj.session.Session
@@ -16,6 +18,9 @@ import kotlinx.coroutines.withContext
  * 並行リードに対応しているため、複数コルーチンから同時に使ってよい。
  */
 object SmbConnectionPool {
+    // 計測用の一時タグ。ボトルネック特定が済んだら関連ログごと削除する
+    const val PERF_TAG = "ThumbPerf"
+
     private val lock = Any()
     private var pooled: PooledShare? = null
 
@@ -50,10 +55,12 @@ object SmbConnectionPool {
         current?.closeQuietly()
         pooled = null
 
-        val client = SMBClient()
+        val startedAt = SystemClock.elapsedRealtime()
+        val client = newSmbClient()
         val connection = client.connect(info.host, info.port)
         val session = connection.authenticate(info.toAuthenticationContext())
         val share = session.connectShare(info.shareName)
+        Log.d(PERF_TAG, "pool miss: connect+auth+share took ${SystemClock.elapsedRealtime() - startedAt}ms")
         if (share !is DiskShare) {
             runCatching { share.close() }
             runCatching { session.close() }

@@ -1,6 +1,8 @@
 package com.ryo.androidfilemanager.explorer
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,22 +16,31 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun FileCollection(
@@ -40,11 +51,31 @@ internal fun FileCollection(
     modifier: Modifier = Modifier,
     selectedPaths: Set<String> = emptySet(),
     onFileLongClick: ((FileItem) -> Unit)? = null,
+    scrollToTopKey: Any? = null,
 ) {
     if (gridMode) {
-        val gridState = rememberLazyGridState()
-        val scrollbarMetrics by remember {
+        // ディレクトリ移動時はスクロール状態ごと作り直し、前のフォルダの位置や
+        // 進行中のスクロールを一切引き継がない
+        val gridState = rememberSaveable(scrollToTopKey, saver = LazyGridState.Saver) {
+            LazyGridState()
+        }
+        val scrollScope = rememberCoroutineScope()
+        val scrollbarMetrics by remember(gridState) {
             derivedStateOf { gridState.scrollbarMetrics() }
+        }
+        val visibleItemCount by remember(gridState) {
+            derivedStateOf { gridState.layoutInfo.visibleItemsInfo.size }
+        }
+        LaunchedEffect(files, gridState, thumbnailRepository) {
+            thumbnailRepository.updateVisibleThumbnails(emptyList())
+            snapshotFlow { gridState.visibleFilesWithBuffer(files) }
+                .distinctUntilChanged { previous, current ->
+                    previous.sameThumbnailTargetsAs(current)
+                }
+                .collectLatest { visibleFiles ->
+                    delay(VIEWPORT_STABILIZATION_MS)
+                    thumbnailRepository.updateVisibleThumbnails(visibleFiles)
+                }
         }
 
         Box(modifier = modifier.fillMaxSize()) {
@@ -73,13 +104,37 @@ internal fun FileCollection(
             }
             FileScrollIndicator(
                 metrics = scrollbarMetrics,
+                totalItemCount = files.size,
+                visibleItemCount = visibleItemCount,
+                onScrollToIndex = { index ->
+                    scrollScope.launch {
+                        gridState.scrollToItem(index)
+                    }
+                },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
     } else {
-        val listState = rememberLazyListState()
-        val scrollbarMetrics by remember {
+        val listState = rememberSaveable(scrollToTopKey, saver = LazyListState.Saver) {
+            LazyListState()
+        }
+        val scrollScope = rememberCoroutineScope()
+        val scrollbarMetrics by remember(listState) {
             derivedStateOf { listState.scrollbarMetrics() }
+        }
+        val visibleItemCount by remember(listState) {
+            derivedStateOf { listState.layoutInfo.visibleItemsInfo.size }
+        }
+        LaunchedEffect(files, listState, thumbnailRepository) {
+            thumbnailRepository.updateVisibleThumbnails(emptyList())
+            snapshotFlow { listState.visibleFilesWithBuffer(files) }
+                .distinctUntilChanged { previous, current ->
+                    previous.sameThumbnailTargetsAs(current)
+                }
+                .collectLatest { visibleFiles ->
+                    delay(VIEWPORT_STABILIZATION_MS)
+                    thumbnailRepository.updateVisibleThumbnails(visibleFiles)
+                }
         }
 
         Box(modifier = modifier.fillMaxSize()) {
@@ -106,6 +161,13 @@ internal fun FileCollection(
             }
             FileScrollIndicator(
                 metrics = scrollbarMetrics,
+                totalItemCount = files.size,
+                visibleItemCount = visibleItemCount,
+                onScrollToIndex = { index ->
+                    scrollScope.launch {
+                        listState.scrollToItem(index)
+                    }
+                },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
@@ -115,14 +177,31 @@ internal fun FileCollection(
 @Composable
 private fun FileScrollIndicator(
     metrics: ScrollbarMetrics?,
+    totalItemCount: Int,
+    visibleItemCount: Int,
+    onScrollToIndex: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentMetrics = metrics ?: return
+    // ドラッグ中のスクロールで metrics が変わるたびに pointerInput が再起動すると
+    // ジェスチャが中断されるため、キーは固定し最新値は State 経由で読む
+    val latestMetrics = rememberUpdatedState(currentMetrics)
+    val latestTotalItemCount = rememberUpdatedState(totalItemCount)
+    val latestVisibleItemCount = rememberUpdatedState(visibleItemCount)
+    val latestOnScrollToIndex = rememberUpdatedState(onScrollToIndex)
     Canvas(
         modifier = modifier
             .fillMaxHeight()
-            .width(8.dp)
-            .padding(top = 6.dp, bottom = 6.dp, end = 2.dp),
+            .width(24.dp)
+            .padding(top = 6.dp, bottom = 6.dp, end = 2.dp)
+            .pointerInput(Unit) {
+                detectScrollbarDrag(
+                    metrics = { latestMetrics.value },
+                    totalItemCount = { latestTotalItemCount.value },
+                    visibleItemCount = { latestVisibleItemCount.value },
+                    onScrollToIndex = { index -> latestOnScrollToIndex.value(index) },
+                )
+            },
     ) {
         val trackWidth = 2.dp.toPx()
         val thumbWidth = 3.dp.toPx()
@@ -148,10 +227,54 @@ private fun FileScrollIndicator(
     }
 }
 
-private data class ScrollbarMetrics(
-    val positionFraction: Float,
-    val thumbHeightFraction: Float,
-)
+private suspend fun PointerInputScope.detectScrollbarDrag(
+    metrics: () -> ScrollbarMetrics,
+    totalItemCount: () -> Int,
+    visibleItemCount: () -> Int,
+    onScrollToIndex: (Int) -> Unit,
+) {
+    awaitEachGesture {
+        val down = awaitFirstDown()
+        // consume しないと下の LazyGrid/LazyColumn も同じドラッグでスクロールを
+        // 始めてしまい、スクロールバー操作と二重に動く
+        down.consume()
+        fun scrollToTouch(touchY: Float) {
+            val total = totalItemCount()
+            val visible = visibleItemCount()
+            if (total <= 0 || visible <= 0) {
+                return
+            }
+            val thumbHeight = (size.height * metrics().thumbHeightFraction)
+                .coerceAtLeast(28.dp.toPx())
+                .coerceAtMost(size.height.toFloat())
+            val fraction = scrollbarDragFraction(
+                touchY = touchY,
+                trackHeight = size.height.toFloat(),
+                thumbHeight = thumbHeight,
+            )
+            onScrollToIndex(
+                scrollbarTargetIndex(
+                    positionFraction = fraction,
+                    totalItemCount = total,
+                    visibleItemCount = visible,
+                ),
+            )
+        }
+
+        scrollToTouch(down.position.y)
+
+        val pointerId = down.id
+        while (true) {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+            if (!change.pressed) {
+                break
+            }
+            change.consume()
+            scrollToTouch(change.position.y)
+        }
+    }
+}
 
 private fun LazyListState.scrollbarMetrics(): ScrollbarMetrics? {
     val visibleItems = layoutInfo.visibleItemsInfo
@@ -165,6 +288,17 @@ private fun LazyListState.scrollbarMetrics(): ScrollbarMetrics? {
         visibleItemCount = visibleItems.size,
         totalItemCount = totalItems,
     )
+}
+
+private fun LazyListState.visibleFilesWithBuffer(files: List<FileItem>): List<FileItem> {
+    val visibleItems = layoutInfo.visibleItemsInfo
+    if (files.isEmpty() || visibleItems.isEmpty()) {
+        return emptyList()
+    }
+
+    val firstIndex = visibleItems.first().index
+    val lastIndex = visibleItems.last().index
+    return itemsInThumbnailPriorityOrder(files, firstIndex, lastIndex)
 }
 
 private fun LazyGridState.scrollbarMetrics(): ScrollbarMetrics? {
@@ -181,19 +315,55 @@ private fun LazyGridState.scrollbarMetrics(): ScrollbarMetrics? {
     )
 }
 
-private fun scrollbarMetrics(
-    firstVisibleIndex: Int,
-    visibleItemCount: Int,
-    totalItemCount: Int,
-): ScrollbarMetrics {
-    val maxFirstVisibleIndex = (totalItemCount - visibleItemCount).coerceAtLeast(1)
-    val thumbHeightFraction = (visibleItemCount.toFloat() / totalItemCount.toFloat())
-        .coerceIn(0.08f, 1f)
-    val positionFraction = (firstVisibleIndex.toFloat() / maxFirstVisibleIndex.toFloat())
-        .coerceIn(0f, 1f)
+private fun LazyGridState.visibleFilesWithBuffer(files: List<FileItem>): List<FileItem> {
+    val visibleItems = layoutInfo.visibleItemsInfo
+    if (files.isEmpty() || visibleItems.isEmpty()) {
+        return emptyList()
+    }
 
-    return ScrollbarMetrics(
-        positionFraction = positionFraction,
-        thumbHeightFraction = thumbHeightFraction,
-    )
+    val firstIndex = visibleItems.minOf { it.index }
+    val lastIndex = visibleItems.maxOf { it.index }
+    return itemsInThumbnailPriorityOrder(files, firstIndex, lastIndex)
 }
+
+internal fun <T> itemsInThumbnailPriorityOrder(
+    items: List<T>,
+    firstVisibleIndex: Int,
+    lastVisibleIndex: Int,
+    bufferSize: Int = VISIBLE_THUMBNAIL_BUFFER_ITEMS,
+): List<T> {
+    if (items.isEmpty() || firstVisibleIndex > lastVisibleIndex) {
+        return emptyList()
+    }
+
+    val first = firstVisibleIndex.coerceIn(items.indices)
+    val last = lastVisibleIndex.coerceIn(first, items.lastIndex)
+    val forwardEnd = (last + bufferSize).coerceAtMost(items.lastIndex)
+    val backwardStart = (first - bufferSize).coerceAtLeast(0)
+
+    return buildList {
+        addAll(items.subList(first, last + 1))
+        if (last < forwardEnd) {
+            addAll(items.subList(last + 1, forwardEnd + 1))
+        }
+        if (backwardStart < first) {
+            addAll(items.subList(backwardStart, first))
+        }
+    }
+}
+
+private fun List<FileItem>.sameThumbnailTargetsAs(other: List<FileItem>): Boolean {
+    if (size != other.size) {
+        return false
+    }
+    return indices.all { index ->
+        val left = this[index]
+        val right = other[index]
+        left.path == right.path &&
+            left.size == right.size &&
+            left.modifiedAt == right.modifiedAt
+    }
+}
+
+private const val VISIBLE_THUMBNAIL_BUFFER_ITEMS = 0
+private const val VIEWPORT_STABILIZATION_MS = 120L
