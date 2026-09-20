@@ -77,3 +77,35 @@ SmbFileSource.open / downloadToDownloads / uploadFromUris
 2. 複数ファイルを選択して Download したとき「n / m」が進むか。フォルダを含む選択で「n done」になるか
 3. アップロード中に「Uploading {名前}」のバーが出るか
 4. リファクタリング後の各画面（Explorer / SMB / Viewer / Settings）の見た目と操作が以前と同じか。特にフィルタ・ソートのドロップダウン、SMB 接続フォームの Done / Test / Connect、ビューワーの全画面切替
+
+---
+
+## 追記: PDF / 動画 / 音声ビューワーの改善（2026-09-21）
+
+ユーザー依頼「ビューワー動画も pdf ももうちょいなんとかしてください」への対応。Worker 2 名（PDF / 動画・音声）に分割し、メインがレビュー・修正・エミュレータ確認を行った。
+
+### PDF（`viewer/PdfViewerScreen.kt`、`PdfDocumentRenderer.kt`、`PdfZoomMath.kt`）
+
+| 修正前 | 修正後 |
+|---|---|
+| ページごとに fd と `PdfRenderer` を開き直す | ドキュメント単位で 1 つ保持し、Mutex で直列化。ビットマップは LRU（96 MB）でキャッシュ |
+| ページが `Card` + 「Page x / y」ラベル | 白いページを 8dp 間隔で連続表示。右上にスクロール中だけ「3 / 12」のピル |
+| 描画前の高さが不定でスクロールが跳ねる | ページサイズを先読みして正確な高さのプレースホルダ |
+| ズームなし | ピンチ（1〜4 倍、2 本指のときだけ Initial パスで奪う）+ ダブルタップ 2 倍。ズーム確定後 250 ms で解像度を量子化して再描画（上限 2000 px） |
+| エラーが `throwable.message` 頼み | パスワード保護 / 破損 / 権限切れ / 0 ページを区別 |
+
+レビューで直した欠陥: (1) LRU 追い出し時に `recycle()` すると表示中の `Image` が落ちるため GC に任せる形に変更、(2) `DisposableEffect(viewerState)` の `onDispose` が現在値を読み、Loading → Ready の切替時に開いたばかりのレンダラーを閉じていた（ページが永遠にスピナーのまま）。効果内で値を固定して解決、(3) ダブルタップ判定が古い倍率を見ていた、(4) close 中の描画で `IllegalStateException` にならないよう mutex を取ってから閉じる。
+
+### 動画・音声（`viewer/RememberMediaPlayer.kt`、`MediaPlayerView.kt`、`AudioViewerScreen.kt`）
+
+- アプリが `ON_STOP` で一時停止、`ON_START` で再開。再生中は `keepScreenOn`
+- 再生位置と再生状態を `rememberSaveable` で回転後も復元
+- 左右ダブルタップで ±10 秒（「−10s」「+10s」を 700 ms 表示）、中央ダブルタップで再生/停止、シングルタップでコントローラ表示切替。コントローラ表示中は下部 96dp をタップ検出から除外
+- エラーを `PlaybackException.errorCode` で分類（コーデック非対応 / 読み取り失敗（SMB か ローカルかで文言を変える）/ コンテナ不正 / その他）し、中央カード + Retry
+- 音声はアイコン + ファイル名 + 常時表示の `PlayerControlView`（高さ 240dp を明示しないと最小レイアウトになり時間表示が消える。前後トラックボタンは非表示）
+
+### 検証
+
+- `assembleDebug` / `testDebugUnitTest`（`PdfZoomMathTest` 9 件を追加）: BUILD SUCCESSFUL
+- エミュレータで生成したサンプル（6 ページ PDF、40 秒の動画、30 秒の音声）を開き、PDF の連続表示・ページピル・ダブルタップ拡大、動画の再生・+10s・コントローラ切替、音声のフル構成コントロールを目視確認
+- 未確認: ピンチ操作（2 本指）、回転後の再生位置復元、バックグラウンド一時停止、SMB ストリーミング動画でのエラーカード表示
