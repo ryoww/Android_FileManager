@@ -3,6 +3,7 @@ package com.ryo.androidfilemanager.viewer
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,15 +27,21 @@ fun TextViewerScreen(
     TextFileContent(
         openedFile = openedFile,
         monospace = false,
+        wrapLines = true,
         modifier = modifier,
     )
 }
 
+/**
+ * @param wrapLines true なら画面幅で折り返す（散文のテキスト向け）。false なら折り返さず
+ * 横スクロールにする（コードはインデントと行の対応が崩れると読みにくいため）。
+ */
 @Composable
 internal fun TextFileContent(
     openedFile: OpenedFile,
     monospace: Boolean,
     modifier: Modifier = Modifier,
+    wrapLines: Boolean = false,
 ) {
     val context = LocalContext.current
     val uri = openedFile.localUriOrNull()
@@ -62,11 +69,14 @@ internal fun TextFileContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .horizontalScroll(rememberScrollState())
+            .then(if (wrapLines) Modifier else Modifier.horizontalScroll(rememberScrollState()))
             .padding(18.dp),
     ) {
         Text(
             text = text,
+            // 折り返すときは幅を画面いっぱいに固定しないと、横スクロールが無くても
+            // Text が内容幅で計測されて折り返し位置が決まらない
+            modifier = if (wrapLines) Modifier.fillMaxWidth() else Modifier,
             style = if (monospace) {
                 MaterialTheme.typography.bodyMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
             } else {
