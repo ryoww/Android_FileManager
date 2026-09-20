@@ -1,24 +1,36 @@
 package com.ryo.androidfilemanager.smb
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.LinkOff
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -40,6 +52,8 @@ internal fun SmbBrowserToolbar(
     onUpload: () -> Unit,
     onDownloadSelected: () -> Unit,
     onClearSelection: () -> Unit,
+    onEditConnection: () -> Unit,
+    onDisconnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (selectedCount > 0) {
@@ -53,7 +67,8 @@ internal fun SmbBrowserToolbar(
     }
 
     Row(
-        modifier = modifier,
+        // 横向きだとヘッダーと1行にまとめるため、項目が増えても折り返さず横スクロールで収める
+        modifier = modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -87,6 +102,37 @@ internal fun SmbBrowserToolbar(
             contentDescription = "Sort by ${selectedSort.label}",
             onSelected = onSortSelected,
         )
+        var moreMenuExpanded by rememberSaveable { mutableStateOf(false) }
+        // DropdownMenu は直前の親レイアウトを基準に位置決めするので、ボタンと同じ Box に入れて
+        // ボタンの直下に出す（Row の子として並べると Row の左端に出てしまう）
+        Box {
+            BrowseIconButton(
+                icon = Icons.Outlined.MoreVert,
+                contentDescription = "More actions",
+                onClick = { moreMenuExpanded = true },
+            )
+            DropdownMenu(
+                expanded = moreMenuExpanded,
+                onDismissRequest = { moreMenuExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Edit connection") },
+                    leadingIcon = { Icon(imageVector = Icons.Outlined.Edit, contentDescription = null) },
+                    onClick = {
+                        moreMenuExpanded = false
+                        onEditConnection()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Disconnect") },
+                    leadingIcon = { Icon(imageVector = Icons.Outlined.LinkOff, contentDescription = null) },
+                    onClick = {
+                        moreMenuExpanded = false
+                        onDisconnect()
+                    },
+                )
+            }
+        }
     }
 }
 

@@ -114,19 +114,16 @@ fun SmbConnectionScreen(
                 }
             }
         } else {
-            ConnectedSummary(
-                uiState = uiState,
-                onEdit = viewModel::editConnection,
-                onDisconnect = viewModel::disconnect,
-            )
-
             val header = @Composable { headerModifier: Modifier ->
                 BrowserHeader(
                     title = uiState.currentPath
                         .takeIf { it.isNotBlank() }
                         ?.substringAfterLast('/')
                         ?: "Share Root",
-                    subtitle = "SMB / ${uiState.currentPath.ifBlank { "/" }}",
+                    subtitle = uiState.currentPath
+                        .takeIf { it.isNotBlank() }
+                        ?.let { "${uiState.form.host} / ${uiState.form.shareName} › $it" }
+                        ?: "${uiState.form.host} / ${uiState.form.shareName}",
                     titleStyle = MaterialTheme.typography.titleMedium,
                     navigateUp = if (uiState.canNavigateUp) {
                         NavigateUpAction(
@@ -153,6 +150,8 @@ fun SmbConnectionScreen(
                     onUpload = { uploadPicker.launch(arrayOf("*/*")) },
                     onDownloadSelected = viewModel::downloadSelectedFiles,
                     onClearSelection = viewModel::clearSelection,
+                    onEditConnection = viewModel::editConnection,
+                    onDisconnect = viewModel::disconnect,
                     modifier = toolbarModifier,
                 )
             }
