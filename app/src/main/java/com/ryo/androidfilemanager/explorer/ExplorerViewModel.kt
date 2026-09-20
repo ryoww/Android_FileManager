@@ -5,19 +5,19 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ryo.androidfilemanager.data.local.FileManagerAccess
-import com.ryo.androidfilemanager.data.local.LocalFolderStore
 import com.ryo.androidfilemanager.core.application.BrowseOutcome
 import com.ryo.androidfilemanager.core.application.DirectoryBrowser
 import com.ryo.androidfilemanager.core.application.OpenEntryUseCase
+import com.ryo.androidfilemanager.core.application.port.FileSource
 import com.ryo.androidfilemanager.core.domain.DirectoryNavigation
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.ViewerType
-import com.ryo.androidfilemanager.data.source.ExternalStorageFileSource
-import com.ryo.androidfilemanager.core.application.port.FileSource
-import com.ryo.androidfilemanager.data.source.LocalFileSource
 import com.ryo.androidfilemanager.core.domain.detectViewerType
+import com.ryo.androidfilemanager.data.local.FileManagerAccess
+import com.ryo.androidfilemanager.data.local.LocalFolderStore
+import com.ryo.androidfilemanager.data.source.ExternalStorageFileSource
+import com.ryo.androidfilemanager.data.source.LocalFileSource
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -147,7 +147,11 @@ class ExplorerViewModel(
             runCatching {
                 directoryBrowser.up(state.navigation)
             }.onSuccess { outcome ->
-                if (outcome == null) return@launch
+                if (outcome == null) {
+                    // 遷移なし。読み込み中表示だけ戻す
+                    _uiState.update { it.copy(isLoading = false) }
+                    return@launch
+                }
                 applyBrowseOutcome(outcome)
             }.onFailure { throwable ->
                 _uiState.update {
@@ -337,12 +341,15 @@ class ExplorerViewModel(
     }
 
     private fun applyBrowseOutcome(outcome: BrowseOutcome) {
-        val path = requireNotNull(outcome.navigation.currentPath)
+        // DirectoryBrowser は必ず 1 階層以上の navigation を返すが、万一空でも落とさない
+        val path = outcome.navigation.currentPath ?: return
+        // update のラムダは CAS の再試行で複数回走り得るので、中で _uiState.value を読まない
+        val rootName = displayNameFor(path, fallback = _uiState.value.rootName)
         _uiState.update {
             it.copy(
                 hasFolderPermission = true,
                 storageMode = sourceMode ?: it.storageMode,
-                rootName = displayNameFor(path),
+                rootName = rootName,
                 navigation = outcome.navigation,
                 navigateUpLabel = navigateUpLabelFor(outcome.navigation.pathStack),
                 files = outcome.entries,
@@ -365,10 +372,10 @@ class ExplorerViewModel(
             .forEach { file -> thumbnailRepository.requestThumbnail(file) }
     }
 
-    private fun displayNameFor(path: String): String? = when (val fileSource = source) {
+    private fun displayNameFor(path: String, fallback: String?): String? = when (val fileSource = source) {
         is ExternalStorageFileSource -> fileSource.displayName(path)
         is LocalFileSource -> fileSource.rootName
-        else -> _uiState.value.rootName
+        else -> fallback
     }
 
     private fun navigateUpLabelFor(pathStack: List<String>): String = when (val fileSource = source) {

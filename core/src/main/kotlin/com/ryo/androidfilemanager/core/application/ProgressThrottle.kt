@@ -10,11 +10,15 @@ class ProgressThrottle(
     private val intervalMs: Long = 100L,
     private val now: () -> Long,
 ) {
+    // 転送は IO スレッド上で通知されるため、直前の判定結果が別スレッドから見えるよう volatile にする
+    @Volatile
     private var lastEmittedAt: Long? = null
 
     fun shouldEmit(progress: TransferProgress): Boolean {
         if (progress.isComplete) {
-            lastEmittedAt = now()
+            // 完了で間引きをリセットする。複数ファイル転送で次のファイルの開始フレームが
+            // 完了直後に来ても握り潰さないため
+            lastEmittedAt = null
             return true
         }
 

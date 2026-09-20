@@ -1,7 +1,6 @@
 package com.ryo.androidfilemanager.data.smb
 
-import com.ryo.androidfilemanager.core.application.port.RemoteReadableFile
-
+import com.ryo.androidfilemanager.core.domain.RemoteReadableFile
 import java.io.IOException
 import kotlin.math.min
 import org.junit.Assert.assertArrayEquals

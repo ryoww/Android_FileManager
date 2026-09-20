@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SmbConnectionForm(
+internal fun SmbConnectionFormCard(
     uiState: SmbExplorerUiState,
     onHostChange: (String) -> Unit,
     onPortChange: (String) -> Unit,

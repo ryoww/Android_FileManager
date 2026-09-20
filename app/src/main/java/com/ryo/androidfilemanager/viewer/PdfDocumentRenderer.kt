@@ -7,13 +7,13 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.unit.IntSize
+import java.io.IOException
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import kotlin.math.roundToInt
 
 /** PDF を開けなかった/描画できなかったことを表す例外。message は画面にそのまま表示できる文言。 */
 internal class PdfOpenException(message: String) : Exception(message)

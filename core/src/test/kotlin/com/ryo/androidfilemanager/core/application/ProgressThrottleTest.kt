@@ -38,6 +38,35 @@ class ProgressThrottleTest {
         assertTrue(throttle.shouldEmit(progress(bytesTransferred = 100, totalBytes = 100)))
     }
 
+    @Test
+    fun emitRightAfterCompleteIsAllowedRegardlessOfInterval() {
+        var clock = 0L
+        val throttle = ProgressThrottle(intervalMs = 100L, now = { clock })
+        throttle.shouldEmit(progress(bytesTransferred = 10, totalBytes = 100))
+
+        clock = 10L
+        assertTrue(throttle.shouldEmit(progress(bytesTransferred = 100, totalBytes = 100)))
+
+        clock = 20L
+        assertTrue(throttle.shouldEmit(progress(bytesTransferred = 0, totalBytes = 500)))
+    }
+
+    @Test
+    fun emitAfterTheResetFollowingCompleteIsThrottledAgain() {
+        var clock = 0L
+        val throttle = ProgressThrottle(intervalMs = 100L, now = { clock })
+        throttle.shouldEmit(progress(bytesTransferred = 10, totalBytes = 100))
+
+        clock = 10L
+        throttle.shouldEmit(progress(bytesTransferred = 100, totalBytes = 100))
+
+        clock = 20L
+        assertTrue(throttle.shouldEmit(progress(bytesTransferred = 0, totalBytes = 500)))
+
+        clock = 30L
+        assertFalse(throttle.shouldEmit(progress(bytesTransferred = 50, totalBytes = 500)))
+    }
+
     private fun progress(bytesTransferred: Long, totalBytes: Long?): TransferProgress = TransferProgress(
         kind = TransferKind.DOWNLOAD,
         fileName = "a.txt",

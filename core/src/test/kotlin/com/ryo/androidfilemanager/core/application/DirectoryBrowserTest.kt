@@ -45,7 +45,7 @@ class DirectoryBrowserTest {
     }
 
     @Test
-    fun upNavigatesBackAndRelistsWithoutCallingFileSourceAtRoot() = runTest {
+    fun upAtRootReturnsNullWithoutCallingFileSource() = runTest {
         val fileSource = FakeFileSource(
             mapOf("/root" to listOf(file("root-file"))),
         )
@@ -53,15 +53,20 @@ class DirectoryBrowserTest {
         val root = DirectoryNavigation.root("/root")
 
         val atRoot = browser.up(root)
+
         assertNull(atRoot)
         assertEquals(0, fileSource.listCallCount)
+    }
 
-        val child = root.enter("/root/child")
-        val fileSourceWithChild = FakeFileSource(
+    @Test
+    fun upFromChildNavigatesBackAndRelistsParent() = runTest {
+        val fileSource = FakeFileSource(
             mapOf("/root" to listOf(file("root-file"))),
         )
-        val browserWithChild = DirectoryBrowser(fileSourceWithChild)
-        val outcome = browserWithChild.up(child)
+        val browser = DirectoryBrowser(fileSource)
+        val child = DirectoryNavigation.root("/root").enter("/root/child")
+
+        val outcome = browser.up(child)
 
         assertEquals("/root", outcome?.navigation?.currentPath)
         assertEquals(listOf("root-file"), outcome?.entries?.map { it.name })

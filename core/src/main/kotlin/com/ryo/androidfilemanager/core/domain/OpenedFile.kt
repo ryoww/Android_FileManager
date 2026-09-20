@@ -1,9 +1,5 @@
 package com.ryo.androidfilemanager.core.domain
 
-import com.ryo.androidfilemanager.core.application.port.FileSource
-
-import com.ryo.androidfilemanager.core.application.port.RemoteReadableFile
-
 sealed class OpenedFile {
     abstract val viewerType: ViewerType
     abstract val name: String?

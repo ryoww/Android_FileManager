@@ -1,17 +1,11 @@
 package com.ryo.androidfilemanager.explorer
 
-import com.ryo.androidfilemanager.core.domain.matchesFilter
-
-import com.ryo.androidfilemanager.core.domain.FileFilter
-
-import com.ryo.androidfilemanager.core.domain.sortedForDisplay
-
-import com.ryo.androidfilemanager.core.domain.FileSortOption
-
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,20 +21,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import android.content.res.Configuration
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ryo.androidfilemanager.data.local.FileManagerAccess
+import com.ryo.androidfilemanager.core.domain.FileFilter
 import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.FileSortOption
 import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.matchesFilter
+import com.ryo.androidfilemanager.core.domain.sortedForDisplay
+import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import com.ryo.androidfilemanager.ui.components.BrowserEmptyState
 import com.ryo.androidfilemanager.ui.components.BrowserHeader

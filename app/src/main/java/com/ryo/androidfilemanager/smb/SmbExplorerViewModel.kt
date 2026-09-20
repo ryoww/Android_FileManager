@@ -5,7 +5,6 @@ import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.core.application.BrowseOutcome
 import com.ryo.androidfilemanager.core.application.ConnectToShareUseCase
 import com.ryo.androidfilemanager.core.application.DirectoryBrowser
@@ -18,12 +17,13 @@ import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.FileSelection
 import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.SmbConnectionForm
+import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 import com.ryo.androidfilemanager.core.domain.TransferProgress
 import com.ryo.androidfilemanager.core.domain.ViewerType
-import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
+import com.ryo.androidfilemanager.core.domain.detectViewerType
+import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
 import com.ryo.androidfilemanager.data.source.SmbFileSource
-import com.ryo.androidfilemanager.core.domain.detectViewerType
 import com.ryo.androidfilemanager.data.thumbnail.SmbThumbnailRepository
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
 import kotlinx.coroutines.Dispatchers
@@ -166,6 +166,10 @@ class SmbExplorerViewModel(
             val form = _uiState.value.form
             val info = form.toConnectionInfo().getOrElse { return@launch showInputError() }
             activeConnectionInfo = info
+            // 接続情報の保存は接続時の 1 回だけ。一覧取得のたびに平文パスワードを書き直さない。
+            // DataStore への書き込み失敗で一覧まで落とさないよう、失敗は保存済みフラグに留める
+            val saved = runCatching { connectionStore.save(info) }.isSuccess
+            _uiState.update { it.copy(hasSavedConnection = it.hasSavedConnection || saved) }
             val fileSource = SmbFileSource(appContext, info)
             source = fileSource
             browser = DirectoryBrowser(fileSource)
@@ -404,7 +408,12 @@ class SmbExplorerViewModel(
             }
             runCatching { load() }
                 .onSuccess { outcome ->
-                    if (outcome != null) applyBrowseOutcome(outcome)
+                    if (outcome != null) {
+                        applyBrowseOutcome(outcome)
+                    } else {
+                        // 遷移なし（ルートで「上へ」など）。読み込み中表示だけ戻す
+                        _uiState.update { it.copy(isLoading = false) }
+                    }
                 }
                 .onFailure { throwable ->
                     _uiState.update {
@@ -418,10 +427,7 @@ class SmbExplorerViewModel(
         }
     }
 
-    private suspend fun applyBrowseOutcome(outcome: BrowseOutcome, successMessage: String? = null) {
-        activeConnectionInfo?.let { info ->
-            connectionStore.save(info)
-        }
+    private fun applyBrowseOutcome(outcome: BrowseOutcome, successMessage: String? = null) {
         _uiState.update {
             it.copy(
                 files = outcome.entries,
@@ -429,7 +435,6 @@ class SmbExplorerViewModel(
                 navigation = outcome.navigation,
                 connected = true,
                 connectionFormExpanded = false,
-                hasSavedConnection = true,
                 isLoading = false,
                 statusMessage = successMessage,
             )

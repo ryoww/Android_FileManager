@@ -25,7 +25,7 @@ internal val OpenedFileSaver: Saver<OpenedFile?, Any> = listSaver(
         } else {
             val uri = saved[0] as String
             val viewerType = viewerTypeFromDisplayName(saved[1] as String)
-            val name = saved.getOrNull(2) as String?
+            val name = saved.getOrNull(2)
             OpenedFile.Local(uri = uri, viewerType = viewerType, name = name)
         }
     },

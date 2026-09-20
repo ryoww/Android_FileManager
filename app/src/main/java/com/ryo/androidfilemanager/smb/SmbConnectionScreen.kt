@@ -1,5 +1,6 @@
 package com.ryo.androidfilemanager.smb
 
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,11 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import android.content.res.Configuration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.FileSortOption
+import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.sortedForDisplay
+import com.ryo.androidfilemanager.explorer.FileCollection
 import com.ryo.androidfilemanager.ui.components.BrowserEmptyState
 import com.ryo.androidfilemanager.ui.components.BrowserHeader
 import com.ryo.androidfilemanager.ui.components.BrowserMessage
@@ -35,7 +36,6 @@ import com.ryo.androidfilemanager.ui.components.BrowserProgressIndicator
 import com.ryo.androidfilemanager.ui.components.NavigateUpAction
 import com.ryo.androidfilemanager.ui.components.ScreenTitle
 import com.ryo.androidfilemanager.ui.components.TransferProgressBar
-import com.ryo.androidfilemanager.explorer.FileCollection
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -91,7 +91,7 @@ fun SmbConnectionScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                SmbConnectionForm(
+                SmbConnectionFormCard(
                     uiState = uiState,
                     onHostChange = viewModel::updateHost,
                     onPortChange = viewModel::updatePort,

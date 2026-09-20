@@ -1,7 +1,5 @@
 package com.ryo.androidfilemanager.data.smb
 
-import com.ryo.androidfilemanager.core.application.port.RemoteReadableFile
-
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
@@ -11,6 +9,7 @@ import android.os.storage.StorageManager
 import android.system.ErrnoException
 import android.system.OsConstants
 import android.util.Log
+import com.ryo.androidfilemanager.core.domain.RemoteReadableFile
 import kotlinx.coroutines.runBlocking
 
 /**

@@ -9,17 +9,18 @@ Android 用ファイルエクスプローラー兼ファイルビューワー（
 
 ## ビルド・テストコマンド
 
-JDK 17 / compileSdk 36 / minSdk 26 / AGP 9.2.1。単一モジュール（`:app`）構成。
+JDK 17 / compileSdk 36 / minSdk 26 / AGP 9.2.1。2 モジュール構成: `:core`（Kotlin JVM、Android 非依存のドメインとユースケース）と `:app`（Android アダプタ）。
 
 ```powershell
 # ビルド
 .\gradlew.bat assembleDebug
 
-# ユニットテスト（app/src/test/）
-.\gradlew.bat testDebugUnitTest
+# ユニットテスト（app/src/test/ と core/src/test/）
+.\gradlew.bat testDebugUnitTest :core:test
 
 # 単一テストクラスの実行
-.\gradlew.bat testDebugUnitTest --tests "com.ryo.androidfilemanager.data.source.ViewerTypeDetectorTest"
+.\gradlew.bat :core:test --tests "com.ryo.androidfilemanager.core.domain.ViewerTypeDetectorTest"
+.\gradlew.bat testDebugUnitTest --tests "com.ryo.androidfilemanager.explorer.ScrollbarMathTest"
 
 # 端末へインストール
 .\gradlew.bat installDebug
@@ -36,13 +37,19 @@ JDK 17 / compileSdk 36 / minSdk 26 / AGP 9.2.1。単一モジュール（`:app`�
 
 ## アーキテクチャ
 
-本質は「ローカル / SMB / キャッシュ / ビューワーを統一的に扱うファイル表示基盤」。UI ではなく抽象化レイヤーが中心。DI フレームワークや Navigation ライブラリは使っておらず、画面遷移は `navigation/AppNavHost.kt` の Compose state（`openedFile` / `rootSection`）で手動管理している。
+本質は「ローカル / SMB / キャッシュ / ビューワーを統一的に扱うファイル表示基盤」。UI ではなく抽象化レイヤーが中心。
+
+依存方向は `app -> core` の一方向（ヘキサゴナル）:
+
+- **`:core`**（`core/src/main/kotlin/com/ryo/androidfilemanager/core/`）: `domain/`（`FileItem`、`ViewerType` と `detectViewerType`、`FileSortOption` / `FileFilter`、`TransferProgress`、`SmbConnectionInfo` / `SmbConnectionForm`、`DirectoryNavigation`、`FileSelection`、`OpenedFile`）、`application/`（`DirectoryBrowser`、`OpenEntryUseCase`、`ConnectToShareUseCase`、`ProgressThrottle`、`copyWithProgress`）、`application/port/`（`FileSource`、`SmbClient`、`SmbConnectionRepository`）。**Android / Compose / SMBJ / DataStore を import しない**。新しい業務ロジックはまずここにテスト付きで置く
+- **`:app`**: Compose UI、ViewModel（`StateFlow` で状態を公開し、core のユースケースを呼ぶだけ）、ポートの実装（SAF / SMBJ / DataStore / Media3 / PdfRenderer）
+- DI は **Koin**（`di/AppModule.kt`、`AndroidFileManagerApplication` で `startKoin`）。画面は `koinViewModel()` / `koinInject()` で受け取る。Navigation ライブラリは使っておらず、画面遷移は `navigation/AppNavHost.kt` の Compose state（`openedFile` / `rootSection`）で手動管理している
 
 ### 中核となる抽象
 
-- **`FileSource`**（`data/source/`）: `list(path)` と `open(file)` の 2 メソッドでストレージを抽象化。実装は `LocalFileSource`（SAF / DocumentFile）、`ExternalStorageFileSource`、`SmbFileSource`（SMBJ）
-- **`OpenedFile`**（`data/model/`）: `Local(uri)` と `Stream(remoteFile)` の sealed class。SMB の PDF/画像/テキスト/コードは一時キャッシュして `Local`、動画/音声はストリーミングで `Stream` になる
-- **`ViewerRouter`**（`viewer/`）: `detectViewerType()`（`data/source/ViewerTypeDetector.kt`）の判定結果で各 Viewer 画面へ分岐
+- **`FileSource`**（core のポート `application/port/`）: `list(path)` と `open(file, onProgress)` でストレージを抽象化。実装は `app` の `LocalFileSource`（SAF / DocumentFile）、`ExternalStorageFileSource`、`SmbFileSource`（SMBJ）
+- **`OpenedFile`**（core の `domain/`）: `Local(uri: String)` と `Stream(remoteFile)` の sealed class。`Uri` への変換はビューワー側の境界（`viewer/OpenedFileUri.kt`）で行う。SMB の PDF/画像/テキスト/コードは一時キャッシュして `Local`、動画/音声はストリーミングで `Stream` になる
+- **`ViewerRouter`**（`viewer/`）: `detectViewerType()`（core の `domain/ViewerTypeDetector.kt`）の判定結果で各 Viewer 画面へ分岐
 - **`ThumbnailRepository`**（`data/thumbnail/`）: ローカル用 `FileThumbnailRepository` と SMB 用 `SmbThumbnailRepository`。生成は Pdf/Video の Generator、アイコンは `IconResolver`
 - **`CacheRepository`**（`data/cache/`）: `cacheDir` 配下の `smb_cache` / `thumbnails` / `temp` の容量計算と削除。設定画面から操作する
 

@@ -1,7 +1,7 @@
 package com.ryo.androidfilemanager.explorer
 
-import com.ryo.androidfilemanager.core.domain.ViewerType
 import com.ryo.androidfilemanager.core.domain.FileItem
+import com.ryo.androidfilemanager.core.domain.ViewerType
 import com.ryo.androidfilemanager.core.domain.detectViewerType
 
 const val A4_PORTRAIT_ASPECT_RATIO = 210f / 297f

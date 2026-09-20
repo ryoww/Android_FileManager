@@ -3,8 +3,8 @@ package com.ryo.androidfilemanager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import com.ryo.androidfilemanager.navigation.AndroidFileManagerApp
 
 class MainActivity : ComponentActivity() {

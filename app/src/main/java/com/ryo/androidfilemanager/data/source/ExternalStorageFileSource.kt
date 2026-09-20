@@ -1,15 +1,13 @@
 package com.ryo.androidfilemanager.data.source
 
-import com.ryo.androidfilemanager.core.application.port.FileSource
-
-import com.ryo.androidfilemanager.core.domain.detectViewerType
-
 import android.net.Uri
 import android.os.Environment
+import com.ryo.androidfilemanager.core.application.port.FileSource
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.SourceType
 import com.ryo.androidfilemanager.core.domain.TransferProgress
+import com.ryo.androidfilemanager.core.domain.detectViewerType
 import java.io.File
 import java.net.URLConnection
 import kotlinx.coroutines.Dispatchers

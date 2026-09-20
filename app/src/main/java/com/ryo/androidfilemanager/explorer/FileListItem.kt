@@ -1,10 +1,9 @@
 package com.ryo.androidfilemanager.explorer
 
-import com.ryo.androidfilemanager.ui.components.pressScale
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.ryo.androidfilemanager.ui.components.pressScale
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

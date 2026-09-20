@@ -1,9 +1,8 @@
 package com.ryo.androidfilemanager.core.application
 
-import com.ryo.androidfilemanager.core.application.port.SmbConnectionRepository
-
 import app.cash.turbine.test
 import com.ryo.androidfilemanager.core.application.port.SmbClient
+import com.ryo.androidfilemanager.core.application.port.SmbConnectionRepository
 import com.ryo.androidfilemanager.core.domain.InvalidSmbConnectionFormException
 import com.ryo.androidfilemanager.core.domain.SmbConnectionForm
 import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo

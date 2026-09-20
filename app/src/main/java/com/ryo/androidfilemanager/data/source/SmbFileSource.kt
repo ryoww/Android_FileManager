@@ -1,32 +1,30 @@
 package com.ryo.androidfilemanager.data.source
 
-import com.ryo.androidfilemanager.core.application.port.FileSource
-
-import com.ryo.androidfilemanager.core.domain.detectViewerType
-
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.util.Log
-import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.msdtyp.AccessMask
+import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
 import com.hierynomus.mssmb2.SMB2CreateOptions
 import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.protocol.commons.EnumWithValue.EnumUtils
 import com.hierynomus.smbj.share.DiskShare
+import com.ryo.androidfilemanager.core.application.copyWithProgress
+import com.ryo.androidfilemanager.core.application.port.FileSource
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.OpenedFile
+import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 import com.ryo.androidfilemanager.core.domain.SourceType
 import com.ryo.androidfilemanager.core.domain.TransferKind
 import com.ryo.androidfilemanager.core.domain.TransferProgress
 import com.ryo.androidfilemanager.core.domain.ViewerType
-import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
+import com.ryo.androidfilemanager.core.domain.detectViewerType
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
 import com.ryo.androidfilemanager.data.smb.SmbReadableFile
-import com.ryo.androidfilemanager.core.application.copyWithProgress
 import com.ryo.androidfilemanager.data.smb.newSmbClient
 import com.ryo.androidfilemanager.data.smb.toAuthenticationContext
 import java.io.File
