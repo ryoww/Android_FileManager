@@ -28,6 +28,7 @@ import com.ryo.androidfilemanager.ui.components.BrowserMessage
 import com.ryo.androidfilemanager.ui.components.BrowserProgressIndicator
 import com.ryo.androidfilemanager.ui.components.NavigateUpAction
 import com.ryo.androidfilemanager.ui.components.ScreenTitle
+import com.ryo.androidfilemanager.ui.components.TransferProgressBar
 import com.ryo.androidfilemanager.explorer.FileCollection
 
 @Composable
@@ -129,7 +130,14 @@ fun SmbConnectionScreen(
                 onDownloadSelected = viewModel::downloadSelectedFiles,
                 onClearSelection = viewModel::clearSelection,
             )
-            BrowserProgressIndicator(visible = uiState.isLoading)
+            // ファイルの取得・保存・アップロード中はバイト数付きの進捗バーに切り替える。
+            // 一覧取得のような総量が分からない待ちは従来の細いバーのまま
+            val transferProgress = uiState.transferProgress
+            if (transferProgress != null) {
+                TransferProgressBar(progress = transferProgress)
+            } else {
+                BrowserProgressIndicator(visible = uiState.isLoading)
+            }
         }
 
         uiState.errorMessage?.let { message ->

@@ -2,6 +2,7 @@ package com.ryo.androidfilemanager.smb
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,6 +14,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
+import com.ryo.androidfilemanager.data.model.TransferProgress
 import com.ryo.androidfilemanager.data.model.ViewerType
 import com.ryo.androidfilemanager.data.model.withNameFallback
 import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
@@ -48,6 +50,7 @@ data class SmbExplorerUiState(
     val errorMessage: String? = null,
     val statusMessage: String? = null,
     val openedFile: OpenedFile? = null,
+    val transferProgress: TransferProgress? = null,
 ) {
     val canNavigateUp: Boolean
         get() = pathStack.size > 1
@@ -69,8 +72,19 @@ class SmbExplorerViewModel(
         source
     }
     private var activeConnectionInfo: SmbConnectionInfo? = null
+    private var lastProgressEmitAt = 0L
 
     fun currentSource(): SmbFileSource? = source
+
+    // 転送はIOスレッドから呼ばれるため、uiState.copy の read-modify-write 競合を避けて
+    // Mainへ寄せて反映する。完了フレームは間引かず必ず通す。
+    private fun reportProgress(progress: TransferProgress) {
+        val now = SystemClock.elapsedRealtime()
+        val isFinal = progress.totalBytes != null && progress.bytesTransferred >= progress.totalBytes
+        if (!isFinal && now - lastProgressEmitAt < PROGRESS_EMIT_INTERVAL_MS) return
+        lastProgressEmitAt = now
+        viewModelScope.launch { uiState = uiState.copy(transferProgress = progress) }
+    }
 
     init {
         viewModelScope.launch {
@@ -249,19 +263,21 @@ class SmbExplorerViewModel(
             )
 
             runCatching {
-                smbSource.downloadToDownloads(selectedFiles)
+                smbSource.downloadToDownloads(selectedFiles, ::reportProgress)
             }.onSuccess { summary ->
                 uiState = uiState.copy(
                     selectedPaths = emptySet(),
                     isLoading = false,
                     isDownloading = false,
                     statusMessage = "Downloaded ${summary.fileCount} file(s) to ${summary.destinationPath}.",
+                    transferProgress = null,
                 )
             }.onFailure { throwable ->
                 uiState = uiState.copy(
                     isLoading = false,
                     isDownloading = false,
                     errorMessage = throwable.message ?: "SMB download failed.",
+                    transferProgress = null,
                 )
             }
         }
@@ -284,9 +300,9 @@ class SmbExplorerViewModel(
             )
 
             runCatching {
-                smbSource.uploadFromUris(uris, destinationPath)
+                smbSource.uploadFromUris(uris, destinationPath, ::reportProgress)
             }.onSuccess { summary ->
-                uiState = uiState.copy(isUploading = false)
+                uiState = uiState.copy(isUploading = false, transferProgress = null)
                 loadPath(
                     path = destinationPath,
                     pathStack = destinationStack,
@@ -297,6 +313,7 @@ class SmbExplorerViewModel(
                     isLoading = false,
                     isUploading = false,
                     errorMessage = throwable.message ?: "SMB upload failed.",
+                    transferProgress = null,
                 )
             }
         }
@@ -363,16 +380,18 @@ class SmbExplorerViewModel(
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, errorMessage = null, statusMessage = null)
             runCatching {
-                smbSource.open(file)
+                smbSource.open(file, ::reportProgress)
             }.onSuccess { openedFile ->
                 uiState = uiState.copy(
                     openedFile = openedFile.withNameFallback(file.name),
                     isLoading = false,
+                    transferProgress = null,
                 )
             }.onFailure { throwable ->
                 uiState = uiState.copy(
                     isLoading = false,
                     errorMessage = throwable.message ?: "SMB file could not be opened.",
+                    transferProgress = null,
                 )
             }
         }
@@ -428,5 +447,6 @@ class SmbExplorerViewModel(
         }
 
         private const val SMB_PDF_PREFETCH_LIMIT = 12
+        private const val PROGRESS_EMIT_INTERVAL_MS = 100L
     }
 }
