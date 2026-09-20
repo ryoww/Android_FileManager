@@ -1,9 +1,12 @@
 package com.ryo.androidfilemanager.explorer
 
+import com.ryo.androidfilemanager.ui.components.pressScale
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,12 +22,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
+import androidx.compose.foundation.interaction.MutableInteractionSource
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -36,11 +41,17 @@ fun FileGridItem(
     selected: Boolean = false,
     onLongClick: (() -> Unit)? = null,
 ) {
+    val thumbnailAspectRatio = thumbnailContentAspectRatio(file)
+    val interactionSource = remember { MutableInteractionSource() }
+
     Card(
-        modifier = modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick,
-        ),
+        modifier = modifier
+            .pressScale(interactionSource)
+            .combinedClickable(
+                interactionSource = interactionSource,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(
             width = if (selected) 2.dp else 1.dp,
@@ -69,7 +80,13 @@ fun FileGridItem(
                 thumbnailRepository = thumbnailRepository,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(106.dp),
+                    .then(
+                        if (thumbnailAspectRatio != null) {
+                            Modifier.aspectRatio(thumbnailAspectRatio)
+                        } else {
+                            Modifier.height(106.dp)
+                        },
+                    ),
             )
 
             Box(modifier = Modifier.fillMaxWidth()) {
@@ -78,13 +95,6 @@ fun FileGridItem(
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(end = 24.dp),
-                )
-                Text(
-                    text = "...",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd),
                 )
                 if (selected) {
                     Icon(

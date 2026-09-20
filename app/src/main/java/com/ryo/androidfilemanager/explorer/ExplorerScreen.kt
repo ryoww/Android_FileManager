@@ -1,27 +1,15 @@
 package com.ryo.androidfilemanager.explorer
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -30,10 +18,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -42,19 +30,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
-import com.ryo.androidfilemanager.data.model.ViewerType
-import com.ryo.androidfilemanager.data.source.detectViewerType
 import com.ryo.androidfilemanager.data.thumbnail.ThumbnailRepository
-
-private enum class FileFilter(
-    val label: String,
-) {
-    ALL("All"),
-    PDF("PDF"),
-    VIDEO("Video"),
-    CODE("Code"),
-    IMAGES("Images"),
-}
+import com.ryo.androidfilemanager.ui.components.BrowserEmptyState
+import com.ryo.androidfilemanager.ui.components.BrowserHeader
+import com.ryo.androidfilemanager.ui.components.BrowserMessage
+import com.ryo.androidfilemanager.ui.components.BrowserProgressIndicator
+import com.ryo.androidfilemanager.ui.components.NavigateUpAction
 
 @Composable
 fun ExplorerScreen(
@@ -140,19 +121,36 @@ fun ExplorerScreenContent(
             .sortedForDisplay(selectedSort)
     }
 
+    BackHandler(enabled = uiState.canNavigateUp) {
+        onNavigateUp()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ExplorerHeader(
-            rootName = uiState.rootName,
-            storageMode = uiState.storageMode,
-            canNavigateUp = uiState.canNavigateUp,
-            navigateUpLabel = uiState.navigateUpLabel,
-            onNavigateUp = onNavigateUp,
-            isLoading = uiState.isLoading,
+        val storageLabel = uiState.rootName?.let {
+            if (uiState.storageMode == ExplorerStorageMode.FILE_MANAGER) {
+                "Device Storage"
+            } else {
+                "Local Storage"
+            }
+        } ?: "Choose a local folder with Android SAF"
+
+        BrowserHeader(
+            title = uiState.rootName ?: "Explorer",
+            subtitle = storageLabel,
+            navigateUp = if (uiState.canNavigateUp) {
+                NavigateUpAction(
+                    label = uiState.navigateUpLabel,
+                    contentDescription = "Back to ${uiState.navigateUpLabel}",
+                    onClick = onNavigateUp,
+                )
+            } else {
+                null
+            },
         )
 
         ExplorerToolbar(
@@ -165,8 +163,10 @@ fun ExplorerScreenContent(
             onReload = onReload,
         )
 
+        BrowserProgressIndicator(visible = uiState.isLoading)
+
         if (!uiState.hasFolderPermission) {
-            EmptyFolderCard(
+            ExplorerPermissionCard(
                 errorMessage = uiState.errorMessage,
                 statusMessage = uiState.statusMessage,
                 hasFullStorageAccess = uiState.hasFullStorageAccess,
@@ -187,223 +187,36 @@ fun ExplorerScreenContent(
             }
 
             uiState.errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                BrowserMessage(message = message, isError = true, onDismiss = null)
             }
 
             uiState.statusMessage?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                BrowserMessage(message = message, isError = false, onDismiss = null)
             }
 
-            FileCollection(
-                gridMode = gridMode,
-                files = visibleFiles,
-                thumbnailRepository = thumbnailRepository,
-                onFileClick = onFileClick,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ExplorerHeader(
-    rootName: String?,
-    storageMode: ExplorerStorageMode,
-    canNavigateUp: Boolean,
-    navigateUpLabel: String,
-    onNavigateUp: () -> Unit,
-    isLoading: Boolean,
-) {
-    val storageLabel = rootName?.let {
-        if (storageMode == ExplorerStorageMode.FILE_MANAGER) {
-            "Device Storage"
-        } else {
-            "Local Storage"
-        }
-    } ?: "Choose a local folder with Android SAF"
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(0.dp),
-        ) {
-            Text(
-                text = rootName ?: "Explorer",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = storageLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (canNavigateUp) {
-                TextButton(onClick = onNavigateUp) {
-                    Text(text = "← $navigateUpLabel")
-                }
-            }
-            if (isLoading) {
-                CircularProgressIndicator()
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExplorerToolbar(
-    gridMode: Boolean,
-    onGridModeChange: (Boolean) -> Unit,
-    selectedFilter: FileFilter,
-    onFilterSelected: (FileFilter) -> Unit,
-    selectedSort: FileSortOption,
-    onSortSelected: (FileSortOption) -> Unit,
-    onReload: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 48.dp)
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CompactModeButton(
-            label = "Grid",
-            selected = gridMode,
-            onClick = { onGridModeChange(true) },
-        )
-        CompactModeButton(
-            label = "List",
-            selected = !gridMode,
-            onClick = { onGridModeChange(false) },
-        )
-        OutlinedButton(onClick = onReload) {
-            Text(text = "Reload")
-        }
-        FileFilter.entries.forEach { filter ->
-            FilterChip(
-                selected = selectedFilter == filter,
-                onClick = { onFilterSelected(filter) },
-                label = { Text(text = filter.label) },
-            )
-        }
-        Text(
-            text = "Sort",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FileSortOption.entries.forEach { sortOption ->
-            FilterChip(
-                selected = selectedSort == sortOption,
-                onClick = { onSortSelected(sortOption) },
-                label = { Text(text = sortOption.label) },
-            )
-        }
-    }
-}
-
-private fun FileItem.matchesFilter(filter: FileFilter): Boolean {
-    if (isDirectory) {
-        return filter == FileFilter.ALL
-    }
-
-    return when (filter) {
-        FileFilter.ALL -> true
-        FileFilter.PDF -> detectViewerType(name, mimeType) == ViewerType.Pdf
-        FileFilter.VIDEO -> detectViewerType(name, mimeType) == ViewerType.Video
-        FileFilter.CODE -> detectViewerType(name, mimeType) == ViewerType.Code
-        FileFilter.IMAGES -> detectViewerType(name, mimeType) == ViewerType.Image
-    }
-}
-
-@Composable
-private fun EmptyFolderCard(
-    errorMessage: String?,
-    statusMessage: String?,
-    hasFullStorageAccess: Boolean,
-    onRequestFullStorageAccess: () -> Unit,
-    onChooseFolder: () -> Unit,
-) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        ) {
-            Column(
-                modifier = Modifier.padding(22.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Text(
-                    text = "No local folder selected",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "Enable full storage access to browse Download and internal storage as a file manager. SAF folder selection remains available for privacy-scoped access.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                statusMessage?.let { message ->
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (!uiState.isLoading && visibleFiles.isEmpty()) {
+                if (uiState.files.isEmpty()) {
+                    BrowserEmptyState(
+                        title = "This folder is empty",
+                        description = "No files or folders here yet.",
+                    )
+                } else {
+                    BrowserEmptyState(
+                        title = "No ${selectedFilter.label} files",
+                        description = "Change the filter to All to see every item in this folder.",
                     )
                 }
-                errorMessage?.let { message ->
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                Button(
-                    onClick = onRequestFullStorageAccess,
-                    enabled = !hasFullStorageAccess,
-                ) {
-                    Text(text = "Enable full storage access")
-                }
-                OutlinedButton(onClick = onChooseFolder) {
-                    Text(text = "Choose SAF folder")
-                }
+            } else {
+                FileCollection(
+                    gridMode = gridMode,
+                    files = visibleFiles,
+                    thumbnailRepository = thumbnailRepository,
+                    onFileClick = onFileClick,
+                    scrollToTopKey = uiState.currentPath,
+                    isRefreshing = uiState.isLoading,
+                    onRefresh = onReload,
+                )
             }
-        }
-    }
-}
-
-@Composable
-private fun CompactModeButton(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    if (selected) {
-        Button(onClick = onClick) {
-            Text(text = label)
-        }
-    } else {
-        OutlinedButton(onClick = onClick) {
-            Text(text = label)
         }
     }
 }

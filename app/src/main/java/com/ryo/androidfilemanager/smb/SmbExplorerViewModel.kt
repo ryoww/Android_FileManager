@@ -1,6 +1,7 @@
 package com.ryo.androidfilemanager.smb
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,6 +14,7 @@ import com.ryo.androidfilemanager.data.local.FileManagerAccess
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.model.ViewerType
+import com.ryo.androidfilemanager.data.model.withNameFallback
 import com.ryo.androidfilemanager.data.smb.DefaultSmbClient
 import com.ryo.androidfilemanager.data.smb.SmbConnectionInfo
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
@@ -42,6 +44,7 @@ data class SmbExplorerUiState(
     val hasSavedConnection: Boolean = false,
     val isLoading: Boolean = false,
     val isDownloading: Boolean = false,
+    val isUploading: Boolean = false,
     val errorMessage: String? = null,
     val statusMessage: String? = null,
     val openedFile: OpenedFile? = null,
@@ -211,6 +214,8 @@ class SmbExplorerViewModel(
     }
 
     fun reload() {
+        // 明示的なリロードでは、TTL 中の失敗サムネイルも再試行対象に戻す
+        thumbnailRepository.resetFailedThumbnails()
         loadPath(path = uiState.currentPath, pathStack = uiState.pathStack.ifEmpty { listOf("") })
     }
 
@@ -262,7 +267,46 @@ class SmbExplorerViewModel(
         }
     }
 
-    private fun loadPath(path: String, pathStack: List<String>) {
+    fun uploadFiles(uris: List<Uri>) {
+        val smbSource = source ?: return
+        if (uris.isEmpty()) {
+            return
+        }
+
+        val destinationPath = uiState.currentPath
+        val destinationStack = uiState.pathStack.ifEmpty { listOf("") }
+        viewModelScope.launch {
+            uiState = uiState.copy(
+                isLoading = true,
+                isUploading = true,
+                errorMessage = null,
+                statusMessage = "Uploading ${uris.size} selected file(s)...",
+            )
+
+            runCatching {
+                smbSource.uploadFromUris(uris, destinationPath)
+            }.onSuccess { summary ->
+                uiState = uiState.copy(isUploading = false)
+                loadPath(
+                    path = destinationPath,
+                    pathStack = destinationStack,
+                    successMessage = "Uploaded ${summary.fileCount} file(s) to ${summary.destinationPath}.",
+                )
+            }.onFailure { throwable ->
+                uiState = uiState.copy(
+                    isLoading = false,
+                    isUploading = false,
+                    errorMessage = throwable.message ?: "SMB upload failed.",
+                )
+            }
+        }
+    }
+
+    private fun loadPath(
+        path: String,
+        pathStack: List<String>,
+        successMessage: String? = null,
+    ) {
         val smbSource = source ?: return
 
         viewModelScope.launch {
@@ -287,6 +331,7 @@ class SmbExplorerViewModel(
                     connectionFormExpanded = false,
                     hasSavedConnection = true,
                     isLoading = false,
+                    statusMessage = successMessage,
                 )
                 prefetchSmbPdfThumbnails(files)
             }.onFailure { throwable ->
@@ -304,7 +349,6 @@ class SmbExplorerViewModel(
             .asSequence()
             .filterNot { it.isDirectory }
             .filter { file -> detectViewerType(file.name, file.mimeType) == ViewerType.Pdf }
-            .filter { file -> (file.size ?: Long.MAX_VALUE) <= SMB_PDF_AUTO_THUMBNAIL_MAX_BYTES }
             .sortedWith(
                 compareByDescending<FileItem> { it.modifiedAt ?: Long.MIN_VALUE }
                     .thenBy { it.name.lowercase() },
@@ -322,7 +366,7 @@ class SmbExplorerViewModel(
                 smbSource.open(file)
             }.onSuccess { openedFile ->
                 uiState = uiState.copy(
-                    openedFile = openedFile,
+                    openedFile = openedFile.withNameFallback(file.name),
                     isLoading = false,
                 )
             }.onFailure { throwable ->
@@ -384,6 +428,5 @@ class SmbExplorerViewModel(
         }
 
         private const val SMB_PDF_PREFETCH_LIMIT = 12
-        private const val SMB_PDF_AUTO_THUMBNAIL_MAX_BYTES = 20L * 1024L * 1024L
     }
 }

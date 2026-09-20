@@ -16,6 +16,7 @@ import com.ryo.androidfilemanager.data.local.LocalFolderStore
 import com.ryo.androidfilemanager.data.model.FileItem
 import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.data.model.ViewerType
+import com.ryo.androidfilemanager.data.model.withNameFallback
 import com.ryo.androidfilemanager.data.source.ExternalStorageFileSource
 import com.ryo.androidfilemanager.data.source.FileSource
 import com.ryo.androidfilemanager.data.source.LocalFileSource
@@ -229,7 +230,7 @@ class ExplorerViewModel(
                 fileSource.open(file)
             }.onSuccess { openedFile ->
                 uiState = uiState.copy(
-                    openedFile = openedFile,
+                    openedFile = openedFile.withNameFallback(file.name),
                     isLoading = false,
                 )
             }.onFailure { throwable ->

@@ -7,18 +7,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,6 +25,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,14 +33,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.FullscreenExit
 import androidx.compose.material.icons.outlined.Settings
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -55,7 +46,9 @@ import com.ryo.androidfilemanager.data.model.OpenedFile
 import com.ryo.androidfilemanager.explorer.ExplorerScreen
 import com.ryo.androidfilemanager.settings.SettingsScreen
 import com.ryo.androidfilemanager.smb.SmbConnectionScreen
+import com.ryo.androidfilemanager.viewer.ViewerFullScreenExitButton
 import com.ryo.androidfilemanager.viewer.ViewerRouter
+import com.ryo.androidfilemanager.viewer.ViewerTopBar
 
 private enum class RootSection {
     EXPLORER,
@@ -107,6 +100,7 @@ fun AppNavHost(
     var openedFile by remember { mutableStateOf<OpenedFile?>(null) }
     var rootSection by remember { mutableStateOf(RootSection.EXPLORER) }
     var viewerFullScreen by remember { mutableStateOf(false) }
+    val saveableStateHolder = rememberSaveableStateHolder()
 
     SystemBarsHiddenEffect(hidden = viewerFullScreen)
     BackHandler(enabled = openedFile != null) {
@@ -149,36 +143,11 @@ fun AppNavHost(
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         if (!viewerFullScreen) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Button(onClick = { openedFile = null }) {
-                                    Text(text = "Back")
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = file.viewerType.displayName,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                FilledTonalIconButton(
-                                    onClick = { viewerFullScreen = true },
-                                    modifier = Modifier.size(44.dp),
-                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = Color(0x331C4E89),
-                                        contentColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.Fullscreen,
-                                        contentDescription = "Full screen",
-                                    )
-                                }
-                            }
+                            ViewerTopBar(
+                                openedFile = file,
+                                onBack = { openedFile = null },
+                                onEnterFullScreen = { viewerFullScreen = true },
+                            )
                         }
                         ViewerRouter(
                             openedFile = file,
@@ -186,38 +155,30 @@ fun AppNavHost(
                         )
                     }
                     if (viewerFullScreen) {
-                        FilledTonalIconButton(
+                        ViewerFullScreenExitButton(
                             onClick = { viewerFullScreen = false },
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(14.dp)
-                                .size(44.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = Color(0xAA0B1724),
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                        ) {
-                            Icon(
-                                Icons.Outlined.FullscreenExit,
-                                contentDescription = "Exit full screen",
-                            )
-                        }
+                                .padding(14.dp),
+                        )
                     }
                 }
-            } ?: when (rootSection) {
-                RootSection.EXPLORER -> ExplorerScreen(
-                    onOpenFile = { openedFile = it },
-                    modifier = Modifier.fillMaxSize(),
-                )
+            } ?: saveableStateHolder.SaveableStateProvider(rootSection.name) {
+                when (rootSection) {
+                    RootSection.EXPLORER -> ExplorerScreen(
+                        onOpenFile = { openedFile = it },
+                        modifier = Modifier.fillMaxSize(),
+                    )
 
-                RootSection.SMB -> SmbConnectionScreen(
-                    onOpenFile = { openedFile = it },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                    RootSection.SMB -> SmbConnectionScreen(
+                        onOpenFile = { openedFile = it },
+                        modifier = Modifier.fillMaxSize(),
+                    )
 
-                RootSection.SETTINGS -> SettingsScreen(
-                    modifier = Modifier.fillMaxSize(),
-                )
+                    RootSection.SETTINGS -> SettingsScreen(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }

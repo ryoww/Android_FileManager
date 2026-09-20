@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,14 +18,18 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +57,8 @@ internal fun FileCollection(
     selectedPaths: Set<String> = emptySet(),
     onFileLongClick: ((FileItem) -> Unit)? = null,
     scrollToTopKey: Any? = null,
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
 ) {
     if (gridMode) {
         // ディレクトリ移動時はスクロール状態ごと作り直し、前のフォルダの位置や
@@ -78,7 +85,11 @@ internal fun FileCollection(
                 }
         }
 
-        Box(modifier = modifier.fillMaxSize()) {
+        RefreshableContainer(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = modifier.fillMaxSize(),
+        ) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 156.dp),
                 state = gridState,
@@ -137,7 +148,11 @@ internal fun FileCollection(
                 }
         }
 
-        Box(modifier = modifier.fillMaxSize()) {
+        RefreshableContainer(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = modifier.fillMaxSize(),
+        ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -172,6 +187,39 @@ internal fun FileCollection(
             )
         }
     }
+}
+
+/**
+ * onRefresh が null なら素の Box、そうでなければ Pull-to-Refresh 対応の Box として振る舞う。
+ * isRefreshing はファイルオープン中も true になるため、ユーザーが実際に pull した場合のみ
+ * インジケータを表示する（pullRequested）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RefreshableContainer(
+    isRefreshing: Boolean,
+    onRefresh: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    if (onRefresh == null) {
+        Box(modifier = modifier, content = content)
+        return
+    }
+
+    var pullRequested by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(isRefreshing) {
+        if (!isRefreshing) pullRequested = false
+    }
+    PullToRefreshBox(
+        isRefreshing = pullRequested && isRefreshing,
+        onRefresh = {
+            pullRequested = true
+            onRefresh()
+        },
+        modifier = modifier,
+        content = content,
+    )
 }
 
 @Composable
