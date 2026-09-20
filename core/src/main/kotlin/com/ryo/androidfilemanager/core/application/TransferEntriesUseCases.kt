@@ -20,6 +20,7 @@ class DownloadEntriesUseCase(
     suspend operator fun invoke(
         selection: FileSelection,
         entries: List<FileItem>,
+        onStarted: ((Int) -> Unit)? = null,
         onProgress: ((TransferProgress) -> Unit)? = null,
     ): TransferSummary {
         val selectedFiles = selection.selectedFrom(entries)
@@ -29,6 +30,10 @@ class DownloadEntriesUseCase(
         if (!canWriteDownloads()) {
             throw DownloadDestinationUnavailableException()
         }
+        // 検証を通過した直後、実際に転送する件数で呼び出し側に開始を知らせる。
+        // selection.count は選択操作の件数であり、一覧に存在しない項目を含みうるため
+        // 実際に転送する selectedFiles.size とは限らずずれる
+        onStarted?.invoke(selectedFiles.size)
         return transfer.download(selectedFiles, onProgress)
     }
 }

@@ -117,8 +117,58 @@ class DownloadEntriesUseCaseTest {
         val selection = FileSelection(setOf("/a"))
         val received = mutableListOf<TransferProgress>()
 
-        useCase(selection, entries) { progress -> received.add(progress) }
+        useCase(selection, entries, onProgress = { progress -> received.add(progress) })
 
         assertTrue(received.isNotEmpty())
+    }
+
+    @Test
+    fun 検証を通過すると転送前にonStartedが実際の件数で呼ばれる() = runTest {
+        val transfer = RecordingFileTransfer()
+        val useCase = DownloadEntriesUseCase(transfer) { true }
+        val entries = listOf(file("/a"), file("/b"), file("/c"))
+        // 選択は3件指定するが、一覧に存在するのは2件だけ → 実際に転送されるのは2件
+        val selection = FileSelection(setOf("/a", "/c", "/missing"))
+        var startedCount: Int? = null
+
+        useCase(selection, entries, onStarted = { count -> startedCount = count })
+
+        assertEquals(2, startedCount)
+        assertEquals(listOf("/a", "/c"), transfer.downloadedFiles?.map { it.path })
+    }
+
+    @Test
+    fun 未選択またはダウンロード先へ書き込めないときはonStartedが呼ばれない() = runTest {
+        val transferForUnselected = RecordingFileTransfer()
+        val useCaseForUnselected = DownloadEntriesUseCase(transferForUnselected) { true }
+        var unselectedStarted = false
+
+        try {
+            useCaseForUnselected(
+                FileSelection(),
+                listOf(file("/a")),
+                onStarted = { unselectedStarted = true },
+            )
+            org.junit.Assert.fail("expected NoEntriesSelectedException")
+        } catch (expected: NoEntriesSelectedException) {
+            // ok
+        }
+        assertFalse(unselectedStarted)
+
+        val transferForUnwritable = RecordingFileTransfer()
+        val useCaseForUnwritable = DownloadEntriesUseCase(transferForUnwritable) { false }
+        var unwritableStarted = false
+
+        try {
+            useCaseForUnwritable(
+                FileSelection(setOf("/a")),
+                listOf(file("/a")),
+                onStarted = { unwritableStarted = true },
+            )
+            org.junit.Assert.fail("expected DownloadDestinationUnavailableException")
+        } catch (expected: DownloadDestinationUnavailableException) {
+            // ok
+        }
+        assertFalse(unwritableStarted)
     }
 }

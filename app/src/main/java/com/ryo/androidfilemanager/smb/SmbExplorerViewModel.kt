@@ -267,21 +267,24 @@ class SmbExplorerViewModel(
     fun downloadSelectedFiles() {
         val downloadEntriesUseCase = downloadEntries ?: return
         val state = _uiState.value
-        // 検証失敗時に「早期 return と同じ見え方」へ戻すため、書き換え前の statusMessage を控えておく
-        val previousStatusMessage = state.statusMessage
 
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    isDownloading = true,
-                    errorMessage = null,
-                    statusMessage = "Downloading ${state.selection.count} selected item(s)...",
-                )
-            }
-
             runCatching {
-                downloadEntriesUseCase(state.selection, state.files, ::reportProgress)
+                downloadEntriesUseCase(
+                    selection = state.selection,
+                    entries = state.files,
+                    onStarted = { count ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = true,
+                                isDownloading = true,
+                                errorMessage = null,
+                                statusMessage = "Downloading $count selected item(s)...",
+                            )
+                        }
+                    },
+                    onProgress = ::reportProgress,
+                )
             }.onSuccess { summary ->
                 _uiState.update {
                     it.copy(
@@ -293,24 +296,14 @@ class SmbExplorerViewModel(
                     )
                 }
             }.onFailure { throwable ->
-                // 検証失敗（未選択・書き込み不可）は転送前に判明するため、isLoading/isDownloading と
-                // statusMessage を呼び出し前の値へ戻し、早期 return していた頃と同じ見え方にする
+                // 検証失敗（未選択・書き込み不可）は onStarted が呼ばれる前に判明するため、
+                // isLoading/isDownloading はまだ立っていない。errorMessage だけを設定すればよい
                 when (throwable) {
                     is NoEntriesSelectedException -> _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isDownloading = false,
-                            errorMessage = "Select SMB files or folders to download.",
-                            statusMessage = previousStatusMessage,
-                        )
+                        it.copy(errorMessage = "Select SMB files or folders to download.")
                     }
                     is DownloadDestinationUnavailableException -> _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isDownloading = false,
-                            errorMessage = "Enable full storage access before downloading SMB files to Download.",
-                            statusMessage = previousStatusMessage,
-                        )
+                        it.copy(errorMessage = "Enable full storage access before downloading SMB files to Download.")
                     }
                     else -> _uiState.update {
                         it.copy(
