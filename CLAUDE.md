@@ -69,6 +69,13 @@ JDK 17 / compileSdk 36 / minSdk 26 / AGP 9.2.1。2 モジュール構成: `:core
 - キャッシュ削除処理を Composable に直書きしない
 - 破損ファイル・権限切れ・SMB 切断でクラッシュさせない。エラーメッセージは原因と対処が分かる具体的な文言にする（「開けませんでした」は禁止）
 
+### UI 規約（2026-09-21 のデザイン刷新以降）
+
+- 配色は `MaterialTheme.colorScheme` から取る。`Color(0x...)` の直書き、`BorderStroke` の枠線、`Brush` のグラデーション、半透明の面（`.copy(alpha = ...)`）は使わない。例外は全画面再生の黒背景と動画上のスクリムだけ
+- 角丸は `MaterialTheme.shapes`。ボタン・行・チップは Material 3 の標準部品（`IconButton` / `TextButton` / `ListItem` / `AssistChip` / `SegmentedButton`）を使い、独自の Surface ボタンや押下アニメーションを作らない
+- テーマは端末のライト / ダークに従い、Android 12 以降は Dynamic Color（`navigation/AppNavHost.kt`）
+- 縦スクロールバーは `ui/components/VerticalScrollbar.kt` を使う（`autoHide = true` で操作中だけ表示）
+
 ## Development Environment
 
 - **OS**: Ubuntu or Windows
