@@ -394,6 +394,10 @@ class ExplorerViewModel(
         }.getOrThrow()
     }
 
+    override fun onCleared() {
+        thumbnailRepository.close()
+    }
+
     companion object {
         private const val PDF_PREFETCH_LIMIT = 24
     }

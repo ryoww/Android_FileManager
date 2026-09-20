@@ -25,6 +25,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -367,6 +368,11 @@ class SmbThumbnailRepository(
         memoryCache.evictAll()
         requestCoordinator.clearFailed()
         notifyThumbnailUpdated()
+    }
+
+    override fun close() {
+        localRepository.close()
+        repositoryScope.cancel()
     }
 
     private suspend fun enqueueThumbnail(

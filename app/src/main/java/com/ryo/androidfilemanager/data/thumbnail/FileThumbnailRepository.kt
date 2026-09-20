@@ -22,6 +22,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -146,6 +147,10 @@ class FileThumbnailRepository(
         }
         memoryCache.evictAll()
         notifyThumbnailUpdated()
+    }
+
+    override fun close() {
+        repositoryScope.cancel()
     }
 
     private suspend fun processThumbnailRequests(

@@ -14,13 +14,14 @@ import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.protocol.commons.EnumWithValue.EnumUtils
 import com.hierynomus.smbj.share.DiskShare
 import com.ryo.androidfilemanager.core.application.copyWithProgress
-import com.ryo.androidfilemanager.core.application.port.FileSource
+import com.ryo.androidfilemanager.core.application.port.SmbShareAccess
 import com.ryo.androidfilemanager.core.domain.FileItem
 import com.ryo.androidfilemanager.core.domain.OpenedFile
 import com.ryo.androidfilemanager.core.domain.SmbConnectionInfo
 import com.ryo.androidfilemanager.core.domain.SourceType
 import com.ryo.androidfilemanager.core.domain.TransferKind
 import com.ryo.androidfilemanager.core.domain.TransferProgress
+import com.ryo.androidfilemanager.core.domain.TransferSummary
 import com.ryo.androidfilemanager.core.domain.ViewerType
 import com.ryo.androidfilemanager.core.domain.detectViewerType
 import com.ryo.androidfilemanager.data.smb.SmbConnectionPool
@@ -37,20 +38,10 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-data class SmbDownloadSummary(
-    val fileCount: Int,
-    val destinationPath: String,
-)
-
-data class SmbUploadSummary(
-    val fileCount: Int,
-    val destinationPath: String,
-)
-
 class SmbFileSource(
     context: Context,
     private val connectionInfo: SmbConnectionInfo,
-) : FileSource {
+) : SmbShareAccess {
     private val appContext = context.applicationContext
     private val smbCacheDir = File(appContext.cacheDir, "smb_cache")
 
@@ -316,10 +307,10 @@ class SmbFileSource(
         }
     }
 
-    suspend fun downloadToDownloads(
+    override suspend fun download(
         files: List<FileItem>,
-        onProgress: ((TransferProgress) -> Unit)? = null,
-    ): SmbDownloadSummary = withContext(Dispatchers.IO) {
+        onProgress: ((TransferProgress) -> Unit)?,
+    ): TransferSummary = withContext(Dispatchers.IO) {
         require(files.isNotEmpty()) {
             "Select one or more SMB files to download."
         }
@@ -351,20 +342,22 @@ class SmbFileSource(
             }
         }
 
-        SmbDownloadSummary(
+        TransferSummary(
             fileCount = downloadedFileCount,
             destinationPath = destinationRoot.path,
         )
     }
 
-    suspend fun uploadFromUris(
-        uris: List<Uri>,
+    override suspend fun upload(
+        sources: List<String>,
         remoteDirectoryPath: String,
-        onProgress: ((TransferProgress) -> Unit)? = null,
-    ): SmbUploadSummary = withContext(Dispatchers.IO) {
-        require(uris.isNotEmpty()) {
+        onProgress: ((TransferProgress) -> Unit)?,
+    ): TransferSummary = withContext(Dispatchers.IO) {
+        require(sources.isNotEmpty()) {
             "Select one or more files to upload."
         }
+        // core にアダプタ固有の Uri を持ち込まないポート契約のため、ここでのみ Uri へ戻す
+        val uris = sources.map(Uri::parse)
 
         val destinationDirectory = remoteDirectoryPath.normalizeRemotePath()
         var uploadedFileCount = 0
@@ -421,7 +414,7 @@ class SmbFileSource(
             }
         }
 
-        SmbUploadSummary(
+        TransferSummary(
             fileCount = uploadedFileCount,
             destinationPath = destinationDirectory.ifBlank { "Share Root" },
         )

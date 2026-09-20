@@ -19,4 +19,7 @@ interface ThumbnailRepository {
     fun resetFailedThumbnails() {}
 
     suspend fun clearThumbnailCache()
+
+    /** ワーカーコルーチンを停止する。ViewModel の onCleared から呼ぶ */
+    fun close() {}
 }

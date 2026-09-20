@@ -48,7 +48,7 @@ fun SmbConnectionScreen(
     val uploadPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
-        viewModel.uploadFiles(uris)
+        viewModel.uploadFiles(uris.map { it.toString() })
     }
     var gridMode by rememberSaveable { mutableStateOf(true) }
     var selectedSortName by rememberSaveable { mutableStateOf(FileSortOption.DEFAULT.name) }
