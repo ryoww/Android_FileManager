@@ -3,7 +3,7 @@
     <!-- appcompat に依存していないため androidx の DayNight テーマは使えない。
          夜間は素の android:style の Dark テーマを親にして、起動時の白フラッシュを防ぐ -->
     <style name="Theme.AndroidFileManager" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans</item>
+        <item name="android:fontFamily">@font/mplus2_family</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
     </style>

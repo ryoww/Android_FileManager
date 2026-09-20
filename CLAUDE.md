@@ -75,6 +75,7 @@ JDK 17 / compileSdk 36 / minSdk 26 / AGP 9.2.1。2 モジュール構成: `:core
 - 角丸は `MaterialTheme.shapes`。ボタン・行・チップは Material 3 の標準部品（`IconButton` / `TextButton` / `ListItem` / `AssistChip` / `SegmentedButton`）を使い、独自の Surface ボタンや押下アニメーションを作らない
 - テーマは端末のライト / ダークに従い、Android 12 以降は Dynamic Color（`navigation/AppNavHost.kt`）
 - 縦スクロールバーは `ui/components/VerticalScrollbar.kt` を使う（`autoHide = true` で操作中だけ表示）
+- 書体は同梱の M PLUS 2（可変フォント `res/font/mplus2.ttf`、OFL）。`ui/theme/AppTypography.kt` の `Typography` を `MaterialTheme` に渡しており、画面側で `fontFamily` を指定しない（等幅が必要なテキスト / コードビューワーだけ `FontFamily.Monospace`）
 
 ## Development Environment
 

@@ -59,6 +59,7 @@ import com.ryo.androidfilemanager.core.domain.ViewerType
 import com.ryo.androidfilemanager.explorer.ExplorerScreen
 import com.ryo.androidfilemanager.settings.SettingsScreen
 import com.ryo.androidfilemanager.smb.SmbConnectionScreen
+import com.ryo.androidfilemanager.ui.theme.AppTypography
 import com.ryo.androidfilemanager.viewer.ViewerFullScreenExitButton
 import com.ryo.androidfilemanager.viewer.ViewerRouter
 import com.ryo.androidfilemanager.viewer.ViewerTopBar
@@ -80,7 +81,7 @@ fun AndroidFileManagerApp() {
         isDark -> darkColorScheme()
         else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = colorScheme) {
+    MaterialTheme(colorScheme = colorScheme, typography = AppTypography) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,

@@ -144,6 +144,19 @@ SMB 画面のスクリーンショットは、接続先の IP アドレスや NA
 
 一覧の開始位置が約 60dp 上がった。横向きではヘッダーとツールバーが既に 1 行なので、一覧がその直下から始まる。
 
+### 追補: 書体を M PLUS 2 に（同日）
+
+「日本語に向いたフォントにしてほしい」という要望で、端末既定の sans-serif から **M PLUS 2**（OFL、Google Fonts）に切り替えた。候補として LINE Seed JP / BIZ UDPGothic / IBM Plex Sans JP も挙げたが、画面向けに設計され英数字との相性がよく、可変フォント 1 本で全ウェイトを賄える点で M PLUS 2 を選んだ。
+
+- `app/src/main/res/font/mplus2.ttf`（可変フォント、wght 100〜900、約 4.2 MB）を同梱。ウェイトごとの静的ファイルを 4 つ入れると 15 MB 近くなるため可変フォントにした
+- Compose は `ui/theme/AppTypography.kt` で `FontVariation.weight(400 / 500 / 600 / 700)` を付けた `FontFamily` を Material 3 の `Typography` 全スタイルに差し込む。サイズ・行間は Material の既定値のまま
+- 可変フォントの既定インスタンスは Thin なので、Compose 外の View（Media3 のコントロール等）向けには `res/font/mplus2_family.xml` でウェイトごとの `fontVariationSettings` を明示し、Activity テーマの `fontFamily` から参照する
+- ライセンスは `app/src/main/assets/fonts/OFL-MPLUS2.txt` に同梱
+
+| Explorer | Settings |
+|---|---|
+| ![font explorer](images/2026-09-21-design/after-font-explorer.png) | ![font settings](images/2026-09-21-design/after-font-settings.png) |
+
 ## レビュー（review-worker / opus）と対応
 
 | 重大度 | 指摘 | 対応 |
