@@ -14,4 +14,8 @@ data class TransferProgress(
     val fraction: Float?
         get() = totalBytes?.takeIf { it > 0L }
             ?.let { (bytesTransferred.toFloat() / it.toFloat()).coerceIn(0f, 1f) }
+
+    /** totalBytes が未知のうちは完了と判定しない（不確定バー中は false のまま） */
+    val isComplete: Boolean
+        get() = totalBytes != null && bytesTransferred >= totalBytes
 }

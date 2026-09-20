@@ -43,6 +43,11 @@ dependencies {
     implementation("androidx.documentfile:documentfile:1.1.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    // DI: 手書きの ViewModel factory を置き換える。コード生成が無いのでビルド構成への影響が小さい
+    implementation(platform("io.insert-koin:koin-bom:4.1.0"))
+    implementation("io.insert-koin:koin-android")
+    implementation("io.insert-koin:koin-androidx-compose")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material3:material3")
