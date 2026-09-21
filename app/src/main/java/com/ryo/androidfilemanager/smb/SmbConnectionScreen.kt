@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +52,7 @@ fun SmbConnectionScreen(
     ) { uris ->
         viewModel.uploadFiles(uris.map { it.toString() })
     }
+    val saveableStateHolder = rememberSaveableStateHolder()
     var gridMode by rememberSaveable { mutableStateOf(true) }
     var selectedSortName by rememberSaveable { mutableStateOf(FileSortOption.DEFAULT.name) }
     val selectedSort = FileSortOption.valueOf(selectedSortName)
@@ -196,18 +198,23 @@ fun SmbConnectionScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                FileCollection(
-                    gridMode = gridMode,
-                    files = visibleFiles,
-                    thumbnailRepository = viewModel.thumbnailRepository,
-                    selectedPaths = uiState.selectedPaths,
-                    onFileClick = viewModel::onFileSelected,
-                    onFileLongClick = viewModel::onFileLongPressed,
-                    modifier = Modifier.fillMaxSize(),
-                    scrollToTopKey = uiState.currentPath,
-                    isRefreshing = uiState.isLoading,
-                    onRefresh = viewModel::reload,
-                )
+                // フォルダのパスをキーに一覧のスクロール位置を保存・復元する。
+                // 接続先（ホスト・共有名）も含めることで、切断して別の共有に
+                // 繋ぎ直したときに前の共有の位置が残らないようにする
+                val scrollStateKey = "${uiState.form.host}/${uiState.form.shareName}#${uiState.currentPath}"
+                saveableStateHolder.SaveableStateProvider(key = scrollStateKey) {
+                    FileCollection(
+                        gridMode = gridMode,
+                        files = visibleFiles,
+                        thumbnailRepository = viewModel.thumbnailRepository,
+                        selectedPaths = uiState.selectedPaths,
+                        onFileClick = viewModel::onFileSelected,
+                        onFileLongClick = viewModel::onFileLongPressed,
+                        modifier = Modifier.fillMaxSize(),
+                        isRefreshing = uiState.isLoading,
+                        onRefresh = viewModel::reload,
+                    )
+                }
             }
         }
     }

@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -119,6 +120,7 @@ fun ExplorerScreenContent(
     onOpenMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val saveableStateHolder = rememberSaveableStateHolder()
     var gridMode by rememberSaveable { mutableStateOf(true) }
     var selectedFilterName by rememberSaveable { mutableStateOf(FileFilter.ALL.name) }
     var selectedSortName by rememberSaveable { mutableStateOf(FileSortOption.DEFAULT.name) }
@@ -243,15 +245,18 @@ fun ExplorerScreenContent(
                     )
                 }
             } else {
-                FileCollection(
-                    gridMode = gridMode,
-                    files = visibleFiles,
-                    thumbnailRepository = thumbnailRepository,
-                    onFileClick = onFileClick,
-                    scrollToTopKey = uiState.currentPath,
-                    isRefreshing = uiState.isLoading,
-                    onRefresh = onReload,
-                )
+                // フォルダのパスをキーに一覧のスクロール位置を保存・復元する。
+                // 下の階層に入って戻ったとき、親の位置に戻れるようにするため
+                saveableStateHolder.SaveableStateProvider(key = uiState.currentPath ?: "") {
+                    FileCollection(
+                        gridMode = gridMode,
+                        files = visibleFiles,
+                        thumbnailRepository = thumbnailRepository,
+                        onFileClick = onFileClick,
+                        isRefreshing = uiState.isLoading,
+                        onRefresh = onReload,
+                    )
+                }
             }
         }
     }

@@ -47,14 +47,14 @@ internal fun FileCollection(
     modifier: Modifier = Modifier,
     selectedPaths: Set<String> = emptySet(),
     onFileLongClick: ((FileItem) -> Unit)? = null,
-    scrollToTopKey: Any? = null,
     isRefreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
 ) {
     if (gridMode) {
-        // ディレクトリ移動時はスクロール状態ごと作り直し、前のフォルダの位置や
-        // 進行中のスクロールを一切引き継がない
-        val gridState = rememberSaveable(scrollToTopKey, saver = LazyGridState.Saver) {
+        // スクロール状態はフォルダごとに保存・復元する。呼び出し側が
+        // SaveableStateProvider(currentPath) で包むので、フォルダに入ると新規、
+        // 戻ると復元になる。ここでパスをキーにすると復元ができないため、キーは付けない（Why not）
+        val gridState = rememberSaveable(saver = LazyGridState.Saver) {
             LazyGridState()
         }
         val scrollScope = rememberCoroutineScope()
@@ -118,7 +118,7 @@ internal fun FileCollection(
             )
         }
     } else {
-        val listState = rememberSaveable(scrollToTopKey, saver = LazyListState.Saver) {
+        val listState = rememberSaveable(saver = LazyListState.Saver) {
             LazyListState()
         }
         val scrollScope = rememberCoroutineScope()
