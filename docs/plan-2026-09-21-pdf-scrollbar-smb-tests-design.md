@@ -157,6 +157,20 @@ SMB 画面のスクリーンショットは、接続先の IP アドレスや NA
 |---|---|
 | ![font explorer](images/2026-09-21-design/after-font-explorer.png) | ![font settings](images/2026-09-21-design/after-font-settings.png) |
 
+### 追補: 下タブを廃止してナビゲーションドロワーに（同日）
+
+画面下の `NavigationBar`（横向きは `NavigationRail`）に Explorer / SMB / Viewer / Settings の 4 タブを並べていた。Settings は使う頻度が低く、Viewer は「ファイルを開いている」という状態の表示で目的地ではないため、押せない灰色のタブが常に並び、縦方向も約 80dp を占めていた。
+
+ユーザーから「Settings を右上のアイコンに」「下のタブ自体をなくしてハンバーガーに」と段階的に提案があり、後者を採った。Files by Google など Android の代表的なファイルアプリと同じ構成で、このアプリの Explorer（端末内）と SMB（NAS）は「保存場所の切り替え」なので引き出しに収まりが良い。
+
+- 左上のハンバーガーから `ModalNavigationDrawer` を開き、Explorer / SMB と、区切り線の下に Settings を置く
+- ルートではハンバーガー、フォルダの中では同じ位置に戻る矢印（`BrowserHeader` の `onOpenMenu` / `navigateUp`）
+- ビューワー表示中は端からのスワイプで引き出しを出さない（PDF の横スクロールや動画操作と競合する）
+- 引き出しが開いているときの戻る操作で引き出しを閉じる `BackHandler` を、画面側のハンドラより後に構成して優先させる（使っている Material 3 の `ModalNavigationDrawer` はこれを内包しておらず、そのままだと戻るでアプリが終了した）
+- 安全領域のパディングはドロワー全体ではなく中身に付ける。全体に付けると横向きでカットアウト側の余白ぶん、閉じたシートの右端が画面左に覗く
+
+引き換えに Explorer と SMB の切り替えは 1 タップから 2 タップになる。左端スワイプはジェスチャーナビゲーションの「戻る」と競合するため、開くのは基本ハンバーガーボタン。
+
 ## レビュー（review-worker / opus）と対応
 
 | 重大度 | 指摘 | 対応 |

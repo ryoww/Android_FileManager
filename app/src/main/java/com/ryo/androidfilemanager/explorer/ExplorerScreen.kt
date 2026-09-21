@@ -48,6 +48,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun ExplorerScreen(
     onOpenFile: (OpenedFile) -> Unit,
+    onOpenMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentContext = LocalContext.current
@@ -100,6 +101,7 @@ fun ExplorerScreen(
         onNavigateUp = viewModel::navigateUp,
         onReload = viewModel::reload,
         onFileClick = viewModel::onFileSelected,
+        onOpenMenu = onOpenMenu,
         modifier = modifier,
     )
 }
@@ -114,6 +116,7 @@ fun ExplorerScreenContent(
     onNavigateUp: () -> Unit,
     onReload: () -> Unit,
     onFileClick: (FileItem) -> Unit,
+    onOpenMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var gridMode by rememberSaveable { mutableStateOf(true) }
@@ -164,6 +167,7 @@ fun ExplorerScreenContent(
                 } else {
                     null
                 },
+                onOpenMenu = if (uiState.canNavigateUp) null else onOpenMenu,
                 modifier = headerModifier,
             )
         }

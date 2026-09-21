@@ -11,42 +11,41 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -63,6 +62,7 @@ import com.ryo.androidfilemanager.ui.theme.AppTypography
 import com.ryo.androidfilemanager.viewer.ViewerFullScreenExitButton
 import com.ryo.androidfilemanager.viewer.ViewerRouter
 import com.ryo.androidfilemanager.viewer.ViewerTopBar
+import kotlinx.coroutines.launch
 
 private enum class RootSection {
     EXPLORER,
@@ -102,6 +102,8 @@ fun AppNavHost(
     // ユーザーが横向きのまま全画面を手動で解除した直後は、自動再突入させないための抑止フラグ
     var suppressAutoFullScreen by rememberSaveable { mutableStateOf(false) }
     val saveableStateHolder = rememberSaveableStateHolder()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
@@ -206,15 +208,18 @@ fun AppNavHost(
                 when (rootSection) {
                     RootSection.EXPLORER -> ExplorerScreen(
                         onOpenFile = { openedFile = it },
+                        onOpenMenu = { scope.launch { drawerState.open() } },
                         modifier = Modifier.fillMaxSize(),
                     )
 
                     RootSection.SMB -> SmbConnectionScreen(
                         onOpenFile = { openedFile = it },
+                        onOpenMenu = { scope.launch { drawerState.open() } },
                         modifier = Modifier.fillMaxSize(),
                     )
 
                     RootSection.SETTINGS -> SettingsScreen(
+                        onOpenMenu = { scope.launch { drawerState.open() } },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -222,48 +227,70 @@ fun AppNavHost(
         }
     }
 
-    val onRootSelected: (RootSection) -> Unit = { section ->
+    fun selectRootSection(section: RootSection) {
         closeOpenedFile()
         rootSection = section
+        scope.launch { drawerState.close() }
     }
 
-    // 向きごとに Scaffold を分けると、回転でビューワーのサブツリーが別のコンポジション位置に
-    // 移って破棄・再生成される（動画がリスタートし、SMB ストリームは接続が閉じる）。
-    // 1 つの Scaffold の中で「レールを出すか / 下タブを出すか」だけを切り替える
-    Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .then(if (viewerFullScreen) Modifier else Modifier.safeDrawingPadding()),
-        bottomBar = {
-            if (!isLandscape && !viewerFullScreen) {
-                AppBottomNavigation(
-                    rootSection = rootSection,
-                    viewerSelected = openedFile != null,
-                    onRootSelected = onRootSelected,
+    // 向きに依らず引き出しの中身と content は同じコンポジション位置に置く。
+    // 向きごとに別のツリーへ分けると、回転でビューワーのサブツリーが破棄・再生成される
+    // （動画がリスタートし、SMB ストリームは接続が閉じる）
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        // ファイルを開いている間は端からのスワイプで引き出しを出さない（PDF の横スクロールや
+        // 動画のシーク操作と競合するため）
+        gesturesEnabled = openedFile == null,
+        drawerContent = {
+            ModalDrawerSheet {
+                Text(
+                    text = "Android File Manager",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 20.dp),
+                )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Outlined.Folder, contentDescription = null) },
+                    label = { Text("Explorer") },
+                    selected = rootSection == RootSection.EXPLORER && openedFile == null,
+                    onClick = { selectRootSection(RootSection.EXPLORER) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Outlined.Cloud, contentDescription = null) },
+                    label = { Text("SMB") },
+                    selected = rootSection == RootSection.SMB && openedFile == null,
+                    onClick = { selectRootSection(RootSection.SMB) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+                    label = { Text("Settings") },
+                    selected = rootSection == RootSection.SETTINGS && openedFile == null,
+                    onClick = { selectRootSection(RootSection.SETTINGS) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
             }
         },
-    ) { innerPadding ->
-        Row(
+        modifier = modifier.fillMaxSize(),
+    ) {
+        // 安全領域のパディングはドロワー全体ではなく中身に付ける。ドロワー全体に付けると、
+        // 横向きでカットアウト側の余白ぶんだけ閉じたシートの右端が画面左に覗いてしまう
+        // （シートは容器の左端から自身の幅だけ左に隠れる計算で、余白は考慮されない）
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (viewerFullScreen) Modifier else Modifier.padding(innerPadding)),
+                .then(if (viewerFullScreen) Modifier else Modifier.safeDrawingPadding()),
         ) {
-            if (isLandscape && !viewerFullScreen) {
-                AppNavigationRail(
-                    rootSection = rootSection,
-                    viewerSelected = openedFile != null,
-                    onRootSelected = onRootSelected,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-            ) {
-                content(Modifier)
-            }
+            content(Modifier)
         }
+    }
+
+    // 引き出しが開いているときの戻る操作は引き出しを閉じる。使っている Material3 の
+    // ModalNavigationDrawer はこれを内包しておらず、そのままだと戻るでアプリが終了した。
+    // 画面側の BackHandler より後に構成して優先させる（後から登録した方が先に呼ばれる）
+    BackHandler(enabled = drawerState.isOpen) {
+        scope.launch { drawerState.close() }
     }
 }
 
@@ -298,59 +325,4 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
-}
-
-private data class AppNavItem(
-    val section: RootSection?,
-    val icon: ImageVector,
-    val label: String,
-)
-
-private val appNavItems = listOf(
-    AppNavItem(RootSection.EXPLORER, Icons.Outlined.Folder, "Explorer"),
-    AppNavItem(RootSection.SMB, Icons.Outlined.Cloud, "SMB"),
-    AppNavItem(null, Icons.Outlined.Description, "Viewer"),
-    AppNavItem(RootSection.SETTINGS, Icons.Outlined.Settings, "Settings"),
-)
-
-@Composable
-private fun AppBottomNavigation(
-    rootSection: RootSection,
-    viewerSelected: Boolean,
-    onRootSelected: (RootSection) -> Unit,
-) {
-    NavigationBar {
-        appNavItems.forEach { item ->
-            val isViewerItem = item.section == null
-            NavigationBarItem(
-                selected = if (isViewerItem) viewerSelected else item.section == rootSection && !viewerSelected,
-                onClick = { item.section?.let(onRootSelected) },
-                enabled = if (isViewerItem) viewerSelected else true,
-                icon = { Icon(item.icon, contentDescription = null) },
-                label = { Text(text = item.label) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun AppNavigationRail(
-    rootSection: RootSection,
-    viewerSelected: Boolean,
-    onRootSelected: (RootSection) -> Unit,
-) {
-    NavigationRail(
-        modifier = Modifier.fillMaxHeight(),
-    ) {
-        appNavItems.forEach { item ->
-            val isViewerItem = item.section == null
-            NavigationRailItem(
-                selected = if (isViewerItem) viewerSelected else item.section == rootSection && !viewerSelected,
-                onClick = { item.section?.let(onRootSelected) },
-                enabled = if (isViewerItem) viewerSelected else true,
-                icon = { Icon(item.icon, contentDescription = null) },
-                label = { Text(text = item.label) },
-            )
-        }
-    }
 }

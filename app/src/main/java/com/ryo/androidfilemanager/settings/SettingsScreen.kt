@@ -37,6 +37,7 @@ private data class CacheSizeState(
 
 @Composable
 fun SettingsScreen(
+    onOpenMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentContext = LocalContext.current
@@ -85,7 +86,7 @@ fun SettingsScreen(
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ScreenTitle(text = "Settings")
+        ScreenTitle(text = "Settings", onOpenMenu = onOpenMenu)
 
         SectionLabel(text = "File manager access")
         SettingsCard {

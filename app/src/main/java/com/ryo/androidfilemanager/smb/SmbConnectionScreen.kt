@@ -41,6 +41,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SmbConnectionScreen(
     onOpenFile: (OpenedFile) -> Unit,
+    onOpenMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: SmbExplorerViewModel = koinViewModel()
@@ -83,7 +84,7 @@ fun SmbConnectionScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (showingForm) {
-            ScreenTitle(text = "SMB Connection")
+            ScreenTitle(text = "SMB Connection", onOpenMenu = onOpenMenu)
 
             Column(
                 modifier = Modifier
@@ -133,6 +134,7 @@ fun SmbConnectionScreen(
                     } else {
                         null
                     },
+                    onOpenMenu = if (uiState.canNavigateUp) null else onOpenMenu,
                     modifier = headerModifier,
                 )
             }

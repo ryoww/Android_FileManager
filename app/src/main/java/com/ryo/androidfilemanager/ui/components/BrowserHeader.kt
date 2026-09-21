@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,8 +25,12 @@ internal data class NavigateUpAction(
 )
 
 /**
- * Shared "title + subtitle (+ optional back button)" header used by the
+ * Shared "title + subtitle (+ optional leading icon)" header used by the
  * Explorer and SMB browser screens.
+ *
+ * 先頭のアイコンは Files by Google と同じ切り替え方をする: ルート（[navigateUp] が null）では
+ * [onOpenMenu] があればハンバーガーを、フォルダの中（[navigateUp] が非 null）では常に戻る矢印を
+ * 同じ位置に出す。両方 null ならアイコンなし
  */
 @Composable
 internal fun BrowserHeader(
@@ -33,6 +38,7 @@ internal fun BrowserHeader(
     subtitle: String,
     titleStyle: TextStyle = MaterialTheme.typography.titleLarge,
     navigateUp: NavigateUpAction? = null,
+    onOpenMenu: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -47,6 +53,14 @@ internal fun BrowserHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = navigateUp.contentDescription,
+                )
+            }
+        } else if (onOpenMenu != null) {
+            // ルートではハンバーガーを同じ位置に出し、引き出しメニューを開かせる
+            IconButton(onClick = onOpenMenu) {
+                Icon(
+                    imageVector = Icons.Outlined.Menu,
+                    contentDescription = "Open navigation menu",
                 )
             }
         }

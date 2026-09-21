@@ -43,7 +43,7 @@ JDK 17 / compileSdk 36 / minSdk 26 / AGP 9.2.1。2 モジュール構成: `:core
 
 - **`:core`**（`core/src/main/kotlin/com/ryo/androidfilemanager/core/`）: `domain/`（`FileItem`、`ViewerType` と `detectViewerType`、`FileSortOption` / `FileFilter`、`TransferProgress`、`SmbConnectionInfo` / `SmbConnectionForm`、`DirectoryNavigation`、`FileSelection`、`OpenedFile`）、`application/`（`DirectoryBrowser`、`OpenEntryUseCase`、`ConnectToShareUseCase`、`ProgressThrottle`、`copyWithProgress`）、`application/port/`（`FileSource`、`SmbClient`、`SmbConnectionRepository`）。**Android / Compose / SMBJ / DataStore を import しない**。新しい業務ロジックはまずここにテスト付きで置く
 - **`:app`**: Compose UI、ViewModel（`StateFlow` で状態を公開し、core のユースケースを呼ぶだけ）、ポートの実装（SAF / SMBJ / DataStore / Media3 / PdfRenderer）
-- DI は **Koin**（`di/AppModule.kt`、`AndroidFileManagerApplication` で `startKoin`）。画面は `koinViewModel()` / `koinInject()` で受け取る。Navigation ライブラリは使っておらず、画面遷移は `navigation/AppNavHost.kt` の Compose state（`openedFile` / `rootSection`）で手動管理している
+- DI は **Koin**（`di/AppModule.kt`、`AndroidFileManagerApplication` で `startKoin`）。画面は `koinViewModel()` / `koinInject()` で受け取る。Navigation ライブラリは使っておらず、画面遷移は `navigation/AppNavHost.kt` の Compose state（`openedFile` / `rootSection`）で手動管理している。ルート画面（Explorer / SMB / Settings）の切り替えは左上のハンバーガーから開く `ModalNavigationDrawer`（下タブは 2026-09-21 に廃止）。ルートではハンバーガー、フォルダの中では同じ位置に戻る矢印を出す（`ui/components/BrowserHeader.kt` の `onOpenMenu` / `navigateUp`）
 
 ### 中核となる抽象
 
